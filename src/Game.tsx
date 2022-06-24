@@ -1,16 +1,25 @@
 import React from 'react';
+import spritesheets from './spritesheets.tsx';
+import purchasable_upgrades from "./purchaseable_upgrades.tsx";
+import spawner_update from './interface spawner_update.tsx';
+import spawners from "./spawners.tsx";
 const itemPool = require("./itemPool.json");
 const _ = require("lodash");
 const Phaser = require("phaser");
 
+
 var player:typeof Phaser.Game.image;
 var items : typeof Phaser.Physics.Arcade.StaticGroup;
 var enemies : typeof Phaser.Physics.Arcade.Group;
-var dummies : typeof Phaser.Physics.Arcade.Group;
 var bullets : typeof Phaser.Physics.Arcade.Group;
 var player_bullets : typeof Phaser.Physics.Arcade.Group;
 var bg : typeof Phaser.GameObjects.TileSprite;
-var spawn_timer : typeof Phaser.Time.TimerEvent[] = [];
+
+
+
+var spawn_timer : {[key:string] : typeof Phaser.Time.TimerEvent } = {};
+var spawn_timer_priorities : {[key:string]:number} = {};
+
 interface player_bullets_intervals{[key:string]:typeof Phaser.Time.TimerEvent}
 
 // player bullets
@@ -20,56 +29,18 @@ var player_bullets_priorities : {[key:string]:number} = {};
 var cursors:any;
 
 
-interface spritesheet {
-    [key: string]: {
-        frameWidth : number, 
-        frameHeight : number, 
-        startFrame : number, 
-        endFrame : number, 
-    }
-}
-var spritesheets:spritesheet = {
-    "spawner1_boom":{
-        frameWidth: 200,
-        frameHeight: 200,
-        startFrame: 0,
-        endFrame: 9
-    },"enemy1_boom":{
-            frameWidth: 40,
-            frameHeight: 40,
-            startFrame: 0,
-            endFrame: 4
-    },"turret_disappear":{
-        frameWidth: 23,
-        frameHeight: 23,
-        startFrame: 0,
-        endFrame: 4
-}
-}
-
-// key = upgrade name , value : things we apply to update_player_bullets_helper (name ,type,params, delay, rotation, priority)
-interface purchasable_upgrades {
-    [key: string]: [string, string ,{[key:string]:any},number, number?, number?][]
-}
-
-var purchasable_upgrades:purchasable_upgrades= {
-    "turret" : [["pturret", "pturret",{},4000, 0]],
-    "burst" : [["pburst_bullet","pburst_bullet",{number:5},3000, 0]],
-    "burst 2" : [["pburst_bullet","pburst_bullet",{number:10},1200, 0, 1]],
-    "spread shot":[["pbullet1", "pbullet1",{}, 400,0,1],["pbullet1_2", "pbullet1",{}, 400, 0.5],["pbullet1_3", "pbullet1",{}, 400, -0.5]]
-    
-}
-
 interface game_state {  
     counter : number,
-    bullets : number
-    upgrades : string[]
+    bullets : number,
+    upgrades : string[],
+    spawners : string[]
 }
 
 var game_state : game_state =  {
     counter : 0,
     bullets : 0,
-    upgrades : ["turret"],
+    upgrades : ["base"],
+    spawners : ["spawner"]
 }
 
 
@@ -93,6 +64,7 @@ function preload (this:typeof Phaser.Game)
         //console.log(item_.name);
         this.load.image(item_.name, "images/items/"+item_.image);
     }
+    // TODO: a better way of doing this
     this.load.image("player", "images/player.png" );
     this.load.image("playerup", "images/playerup.png" );
     this.load.image("enemy1", "images/enemies/enemy1.png");
@@ -150,11 +122,11 @@ function enemy_remove_image(enemy : typeof Phaser.GameObjects.GameObject, key:st
 function enemy_hit_by_bullet(enemy : typeof Phaser.Game.GameObject, bullet : typeof Phaser.GameObjects.GameObject){
     var enemy_type:string = enemy.getData("type");
     var bullet_type:string = bullet.getData("type");
+
     if(enemy_type === "enemy1"){
         destroy_enemy(enemy);
     }
     if(enemy_type === "spawner1"){
-        console.log("hit");
         enemy.setData("hp",enemy.getData("hp")-1 );
         var hp:number = enemy.getData("hp")
         // enemy images example
@@ -176,14 +148,17 @@ function enemy_hit_by_bullet(enemy : typeof Phaser.Game.GameObject, bullet : typ
         if(hp === 0){
             destroy_enemy(enemy);
         }
-
-        
     }
+
+    // tint the enemy based on hp.
     if(enemy.getData("disable_tint") === undefined){
         var hp:number = enemy.getData("hp")
         var max_hp:number = enemy.getData("max_hp")
-        enemy.tint = Math.floor(hp*256/max_hp)*256+Math.floor(hp*256/max_hp)*65536+Math.floor(hp*256/max_hp);
+        var ratio = hp / max_hp;
+        ratio = 0.5 + ratio/2;
+        enemy.tint = Math.floor(ratio*256)*256+Math.floor(ratio*256)*65536+Math.floor(ratio*256);
     }
+    // destroy the bullet
     if(bullet_type === "pbullet1"){
         destroy_bullet(bullet);
     }
@@ -212,9 +187,8 @@ function out_of_bounds(s:any){
 }
 
 
-function  create (this:any)
+function  create(this:any)
 {
-
     scene = game.scene.scenes[0];
     console.log("create called");
     bg= scene.add.tileSprite(game_width/2, game_height/2, game_width, game_height, "background");
@@ -225,13 +199,11 @@ function  create (this:any)
     items.create(400, 300, "blue key");
     items.create(700, 600, "green orb with ghost");
     items.create(700, 300, "red gem");
-    // define player bullets
-    bullets = this.physics.add.group();
-    // add dummy objects for animations
-    dummies = this.physics.add.group();
+    update_player_bullets_based_on_state();
+    update_spawners_based_on_state();
+
     // add enemies
     enemies = this.physics.add.group();
-    spawn_enemy("spawner1",{"direction" : [Math.random() * 800, Math.random()* 300], "speed" : 40, time : 5000},-100, -100);
     // add player
     player = this.physics.add.image(500,500,"player");
     // add collision
@@ -243,17 +215,12 @@ function  create (this:any)
     this.physics.add.overlap(enemies, player_bullets, enemy_hit_by_bullet, function(enemy: typeof Phaser.GameObjects.GameObject, bullet: typeof Phaser.GameObjects.GameObject){
         return bullet.getData("type") !== "pburst_bullet";
     }, this);
-    // add collision for enemy
-    //this.physics.add.overlap(player, enemies, enemy_touch_object, null, this);  
-
     // add animations
     for(var item of Object.keys(spritesheets)){
         this.anims.create({key:item, 
         frames : item
         })
     }
-    // add player bullets
-    update_player_bullets_helper("pbullet1", "pbullet1",{}, 500, 0);
 }
 
 function destroy_enemy(e : typeof Phaser.GameObjects.GameObject){
@@ -279,23 +246,33 @@ function destroy_bullet(bullet : typeof Phaser.GameObjects.GameObject){
     bullet.destroy();
 }
 function spawn_enemy(type:string, params : any,  x : number, y : number){
+    // all enemies must have hp as a param
+    // optionally set disable_tint
     var images:typeof Phaser.Game.image[] = [];
     var timers:typeof Phaser.Time.TimerEvent[]= [];
     if(type === "enemy1"){
+        // {fire :  rate of fire}
         var new_enemy = enemies.create(x, y, "enemy1");
-        new_enemy.setData("hp", 1);
-        new_enemy.setData("max_hp", 1);
-        timers.push(scene.time.addEvent({delay : 1000, loop: true, callback:shoot_bullet, args : [new_enemy, "bullet1"]}) );
+        new_enemy.setData("hp", params.hp);
+        new_enemy.setData("max_hp", params.max_hp);
+        timers.push(scene.time.addEvent({delay :params.fire, loop: true, callback:shoot_bullet, args : [new_enemy, "bullet1", {speed:300}]}) );
+        scene.physics.moveToObject(new_enemy, player, 100);
     }
-    else if (type === "spawner1"){
+    else if (type === "spawner1"){ 
+        /*
+            direction[number, number] (where to go)
+            speed : how fast to go there
+            time : how long to move for 
+            delay : delay between spawning enemies
+
+        */
         var new_enemy = enemies.create(x, y, "spawner1");
-        new_enemy.setData("hp", 5);
-        new_enemy.setData("max_hp", 5);
-        // spawn enemies
-        timers.push(scene.time.addEvent({delay : 1000, loop:true, callback:function(e){spawn_enemy("enemy1", {}, e.x, e.y)}, args : [new_enemy]}))
-        console.log(params.target);
+        new_enemy.setData("hp", params.hp);
+        new_enemy.setData("max_hp", params.hp);       
+        timers.push(scene.time.addEvent({delay : params.delay, loop:true, callback:function(e){spawn_enemy("enemy1", {fire:1000}, e.x, e.y)}, args : [new_enemy]}))
         // move in that direction
-        scene.physics.moveTo( new_enemy, params.direction[0]-x, params.direction[1]-y, params.speed);
+        console.log([params.direction[0], params.direction[1]])
+        scene.physics.moveTo( new_enemy, params.direction[0]+x, params.direction[1]+y, params.speed);
         // stop when enough time passes
         
         var timer=  scene.time.addEvent({
@@ -311,10 +288,16 @@ function spawn_enemy(type:string, params : any,  x : number, y : number){
     new_enemy.setData("images", images); // image, x ,y
     new_enemy.setData("timers", timers);
 }
-function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string){
+function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string, params:{[key:string] : any}){
     if(type === "bullet1"){
+        // param : speed
         var bullet = bullets.create(enemy.x, enemy.y, "bullet1");
-        scene.physics.moveToObject(bullet, player, 300);
+        scene.physics.moveToObject(bullet, player, params.speed);
+    }
+    if(type === "offset bullet"){
+        //params = {x, y, speed} : the location (relative to player) to aim at.
+        var bullet = bullets.create(enemy.x, enemy.y, "bullet1");
+        scene.physics.moveTo(bullet, player.x+params.x, player.y + params.y, params.speed);
     }
     bullet.setData("type", type);
 }
@@ -326,17 +309,19 @@ function player_shoot_bullet_up(type:string, params :{[key:string]:any}= {}, rot
 
 function player_shoot_bullet(type : string,params:{[key:string]:any}, x: number, y : number, start_x : number=player.x, start_y : number=player.y){ // x and y are direction, start_x and start_y are location of bulllet
     var angle : number = 0;
-    if(x != 0 || y != 0){
+    if(x !== 0 || y !== 0){
         var angle : number = Math.atan2(y, x);        
     }
     
     if(type === "pbullet1"){
+        // no params
         var bullet = player_bullets.create(start_x, start_y, "pbullet1");
         var bullet_speed = 1200;    
         bullet.setVelocityX(bullet_speed * Math.cos(angle));
         bullet.setVelocityY(bullet_speed * Math.sin(angle));
     }
     if(type === "pburst_bullet"){
+        // number : number of bullets to explode into
         var bullet = player_bullets.create(start_x, start_y, "pburst_bullet");
         var bullet_speed = 300;
         bullet.setVelocityX(bullet_speed * Math.cos(angle));
@@ -358,6 +343,7 @@ function player_shoot_bullet(type : string,params:{[key:string]:any}, x: number,
         }))
     }
     if(type === "pturret"){
+        // no params
         var bullet = player_bullets.create(start_x, start_y, "turret");
         bullet.setVelocityX(0);
         bullet.setVelocityY(0);
@@ -380,30 +366,58 @@ function player_shoot_bullet(type : string,params:{[key:string]:any}, x: number,
     }
     bullet.setData("type", type);
 }
+
 function remove_player_bullet(name:string){
-    if(player_bullets_intervals[name] == undefined){
+    if(player_bullets_intervals[name] === undefined){
         return;
     }
     player_bullets_intervals[name].remove();
     player_bullets_intervals[name] = undefined;
+    delete player_bullets_priorities[name];
 }
-
-function update_player_bullets_helper(name : string, type : string, params:{[key:string]:any}, delay : number, rotation : number = 0, priority = 0){
+function remove_spawner(name : string){
+    if(spawn_timer[name] === undefined){
+        return
+    }
+    spawn_timer[name].remove();
+    spawn_timer[name] = undefined;
+    delete spawn_timer_priorities[name];
+}
+// update which bullets the players can shoot
+function update_player_bullets_helper(name : string, type : string, params:{[key:string]:any} , paramsFn? : () => any , delay : number = 0, rotation : number = 0, priority = 0){
     if(player_bullets_priorities[name] === undefined || player_bullets_priorities[name] < priority){
         player_bullets_priorities[name] = priority;
         update_player_bullets({
             [name]:{
                 delay : delay,
                 loop:true,
-                callback:player_shoot_bullet_up,
-                args:[type,params, rotation]
+                callback:function(type, params, paramsFn, rotation){
+                    if(paramsFn !== undefined){
+                        params = paramsFn();
+                    }
+                    player_shoot_bullet_up(type, params, rotation)
+                },
+                args:[type,params,paramsFn, rotation]
             }
         })
     }
 }
 
+function update_player_bullets_based_on_state(){
+    for(var item of game_state.spawners){
+        update_spawners(spawners[item]);
+    }
+}
+function update_spawners_based_on_state(){
+    for(var item of game_state.upgrades){
+        for(var upgrade of purchasable_upgrades[item]){
+            update_player_bullets_helper(...upgrade);
+        }
+    }
+}
+
+
 function update_player_bullets(new_stuff:any){
-    console.log(new_stuff);
     for(var thing of Object.keys(new_stuff)){
         // cancel the old intervals
         if(player_bullets_intervals[thing] !== undefined){
@@ -412,6 +426,36 @@ function update_player_bullets(new_stuff:any){
         player_bullets_intervals[thing] = scene.time.addEvent(new_stuff[thing]);
     }
 }
+
+
+//object, keys are strings, values are [, priority]
+function update_spawners(new_stuff : spawner_update[]){
+    for(var item of new_stuff){
+        // cancel the old intervals
+        var updateTimer = item[0];
+        var key = item[1];
+        var prio :number = item[2];
+        if(spawn_timer[key] === undefined || spawn_timer_priorities[key] < prio){//if should update
+            if(spawn_timer[key] !== undefined){
+                spawn_timer[key].remove();
+            }
+            var object:any = updateTimer;
+            object.callback = function(type, x, y, params, paramsFn){
+                var x_val = x(params);
+                var y_val = y(params);
+                if(paramsFn !== undefined){
+                    params = paramsFn();
+                }
+                spawn_enemy(type, params, x_val, y_val);
+            }
+            object.args = [object.type, object.x, object.y, object.params, object.paramsFn];
+            spawn_timer[key] = scene.time.addEvent(object);
+            spawn_timer_priorities[key] = prio
+        }
+
+    }
+}
+
 function slow_update(){ // called every second
     // make enemies follow player
     for(var en of enemies.children.entries  ){
@@ -425,56 +469,55 @@ function slow_update(){ // called every second
         }
     }
     // upgrades
+    /*
     for(var item of game_state.upgrades){
         purchasable_upgrades[item].forEach((x) => 
             update_player_bullets_helper(...x)
         );
-    }
+    }*/
 }
-function update (this:any)
+
+function update(this:any)
 {   
-    // enemies
+    // enemies images
     for(var item of enemies.children.entries){
         push_in(item)
         for(var image of item.getData("images")){
-           // console.log(item.x + image.x);
-            console.log(item.y)
-            console.log(image.y)
-            console.log(image.key);
             image.image.setX(item.x + image.x);
             image.image.setY(item.y + image.y);
             image.image.depth = 1;
         }
     }
+    // destroy bad bullets
     for(var item of bullets.children.entries){
         if(out_of_bounds(item)){
             item.destroy();
         }
     }
-    // scroll background
-    bg.tilePositionY -= 1;
-    // destroy all old bullets
     for(var item of player_bullets.children.entries){
         if(out_of_bounds(item)){
             destroy_bullet(item);
         }
     }
+
+    // scroll background
+    bg.tilePositionY -= 1;
+    // move player
     push_in(player);
-    if(keys["mouseX"] != undefined && keys["mouseY"] != undefined){
+    // player moves to mouse
+    if(keys["mouseX"] !== undefined && keys["mouseY"] !== undefined){
         var distance = Phaser.Math.Distance.Between(player.x, player.y, keys["mouseX"], keys["mouseY"] );
-        if(distance > 5){
-            scene.physics.moveTo(player, keys["mouseX"], keys["mouseY"], 300);
+        if(distance > 10){
+            scene.physics.moveTo(player, keys["mouseX"], keys["mouseY"], player_speed);
         } else{
             scene.physics.moveTo(player, keys["mouseX"], keys["mouseY"], 0, 0);
-    //        player.y = keys.mouseY;
-//            scene.physics.moveTo(player, keys["mouseX"], keys["mouseY"], 10);
         }
     }
 
     
 }
 
-var keys : any = {};
+var keys : {[key:string]:any} = {};
 
 function keydownEvent(e:KeyboardEvent){
     keys[e.key] = true;
@@ -561,9 +604,10 @@ class Game extends React.Component{
 	render():any{
         if(this.state.display !== "game"){
             pause();
+            
             var buttonObj = <button onClick={function(this:React.Component){this.setState({display:"game"})}.bind(this)}>Back</button>
 
-            if(this.state.display == "upgrades"){
+            if(this.state.display === "upgrades"){
                 return (<>
                     {buttonObj}<br />
                     Upgrades <br />
