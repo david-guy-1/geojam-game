@@ -18,6 +18,32 @@ var spawners:spawners= {
         y : () => 0,
         loop:true
     },"base",0]], 
+    "rapid_spawn" : [[{
+        delay : 1000,
+        type : "enemy1",
+        params : {"fire":1000,hp:1},
+        x : () => Math.random() * game_width,
+        y : () => 0,
+        loop:true
+    },"rapid_spawn",0]], 
+    "multi" : [[{
+        delay : 1000,
+        type : "multi",
+        params : {"fire":1000,hp:1},
+        x : () => Math.random() * game_width,
+        y : () => 0,
+        loop:true
+    },
+    "multi", 0]],
+    "follow" : [[{
+        delay : 1000,
+        type : "follow",
+        params : {"fire":1000,hp:1},
+        x : () => Math.random() * game_width,
+        y : () => 0,
+        loop:true
+    },
+    "follow", 0]],
     "spawner":[
         [{
                 delay : 5000,

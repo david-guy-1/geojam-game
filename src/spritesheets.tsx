@@ -12,12 +12,26 @@ var spritesheets:spritesheet = {
         frameHeight: 120,
         startFrame: 0,
         endFrame: 9
-    },"enemy1_boom":{
+    },
+    "enemy1_boom":{
             frameWidth: 40,
             frameHeight: 40,
             startFrame: 0,
             endFrame: 4
-    },"turret_disappear":{
+    },
+    "multi_boom":{
+            frameWidth: 40,
+            frameHeight: 40,
+            startFrame: 0,
+            endFrame: 4
+    },
+    "follow_boom":{
+        frameWidth: 40,
+        frameHeight: 40,
+        startFrame: 0,
+        endFrame: 4
+    },
+    "turret_disappear":{
         frameWidth: 23,
         frameHeight: 23,
         startFrame: 0,
