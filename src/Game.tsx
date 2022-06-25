@@ -9,13 +9,38 @@ const itemPool = require("./itemPool.json");
 const _ = require("lodash");
 const Phaser = require("phaser");
 
+
+/*
+TODO: 
+
+make upgrades spawn
+make tutorial
+add code for when/how pick a side works
+make bosses
+upgrades should be shapes instead of buttons
+player bullet should be computed from upgrades
+add health bar / penalty for getting hit
+add temporary upgrades
+pick a side should be indicated using a bar
+upgrades + pick a side interface
+
+
+*/
+
 /*
 process for adding a new enemy:
 - draw it and draw it's explosion
+- update images
 - make a spawner for it
 - in spawn_enemy function, add how it spawns 
-- in destroy_enemy, make it play the anmination
+
+default naming conventions: 
+keys and file names are the same
+explosion will be (type)_boom
+
 */
+var dont_render_both = false;
+
 var player:typeof Phaser.Game.image;
 var items : typeof Phaser.Physics.Arcade.StaticGroup;
 var enemies : typeof Phaser.Physics.Arcade.Group;
@@ -23,6 +48,7 @@ var bullets : typeof Phaser.Physics.Arcade.Group;
 var player_bullets : typeof Phaser.Physics.Arcade.Group;
 var bg : typeof Phaser.GameObjects.TileSprite;
 var texts : {[key:string] : typeof Phaser.GameObjects.Text} = {};
+var text_timers : {[key:string] : typeof Phaser.Time.TimerEvent} = {}
 
 
 var spawn_timer : {[key:string] : typeof Phaser.Time.TimerEvent } = {};
@@ -34,8 +60,8 @@ interface player_bullets_intervals{[key:string]:typeof Phaser.Time.TimerEvent}
 var player_bullets_intervals :player_bullets_intervals= {};
 var player_bullets_priorities : {[key:string]:number} = {};
 
-var cursors:any;
-
+// x, y, strength, image
+var black_holes : {[key:string] : [number,number, number, typeof Phaser.Game.image]} = {};
 
 interface game_state {  
     counter : number,
@@ -44,15 +70,18 @@ interface game_state {
     spawners : string[],
     next_pick_time? : number,
     next_pick_time_so_far? : number,
-    next_pick_choices? : string[]
+    next_pick_choices? : string[],
+    player_speed : number
 }
 
 var game_state : game_state =  {
     counter : 0,
     bullets : 0,
     upgrades : ["base"],
-    spawners : ["follow"]
+    spawners : ["laser"],
+    player_speed : 500
 }
+
 
 
 var GameComponent : React.Component;
@@ -61,7 +90,8 @@ var scene : typeof Phaser.Scene;
 
 const game_width = 800;
 const game_height = 600;
-const player_speed = 500;
+const fps = 60; 
+
 
 var anims : any;
 
@@ -75,20 +105,25 @@ function preload (this:typeof Phaser.Game)
         //console.log(item_.name);
         this.load.image(item_.name, "images/items/"+item_.image);
     }
-    // TODO: a better way of doing this
-    this.load.image("player", "images/player.png" );
-    this.load.image("playerup", "images/playerup.png" );
-    this.load.image("enemy1", "images/enemies/enemy1.png");
-    this.load.image("enemy2", "images/enemies/enemy2.png");
-    this.load.image("enemy3", "images/enemies/enemy3.png");
-    this.load.image("bullet1", "images/bullet1.png");
-    this.load.image("pbullet1", "images/pbullet1.png");
-    this.load.image("pburst_bullet", "images/pburst_bullet.png");
-    this.load.image("background", "images/background.png");
-    this.load.image("blank", "images/blank.png");
+    // load images and spritesheets
+    /*
 
-    this.load.image("turret", "images/turret.png");
-    this.load.image("spawner1", "images/enemies/spawner1.png");
+while(True):
+	print("\tvar enemy_images : string[] = " + str(list(map(lambda x : x.replace(".png",""), (filter(lambda x : "png" in x, os.listdir("D:/Desktop/games/geo_game/public/images/enemies")))))))
+	print("\tvar images : string[] = " + str(list(map(lambda x : x.replace(".png",""), (filter(lambda x : "png" in x, os.listdir("D:/Desktop/games/geo_game/public/images")))))))
+	input("")
+
+    */
+	var enemy_images : string[] = ['black_hole_layer', 'enemy1', 'enemy2', 'enemy3', 'enemy4', 'laser', 'spawner1']
+	var images : string[] = ['background', 'background2', 'black_hole', 'blank', 'bullet1', 'laser_bullet', 'laser_charged', 'pbullet1', 'pburst_bullet', 'player', 'playerup', 'player_upgraded', 'turret']
+    
+    for(var item of images){
+        this.load.image(item, "images/" + item+".png");
+    }
+    
+    for(var item of enemy_images){
+        this.load.image(item, "images/enemies/" + item+".png");
+    }
     for(var sheet of Object.keys(spritesheets)){
         this.load.spritesheet(sheet, `images/sheets/${sheet}.png`, spritesheets[sheet]);
     }
@@ -216,7 +251,7 @@ function out_of_bounds(s:any){
 }
 
 
-function  create(this:any)
+function create(this:any)
 {
     scene = game.scene.scenes[0];
     console.log("create called");
@@ -228,6 +263,7 @@ function  create(this:any)
     items.create(400, 300, "blue key");
     items.create(700, 600, "green orb with ghost");
     items.create(700, 300, "red gem");
+    set_pick_side();
     update_player_bullets_based_on_state();
     update_spawners_based_on_state();
 
@@ -250,6 +286,8 @@ function  create(this:any)
         frames : item
         })
     }
+    // 
+    
 }
 
 function destroy_enemy(e : typeof Phaser.GameObjects.GameObject){
@@ -295,11 +333,47 @@ function spawn_enemy(type:string, params : any,  x : number, y : number){
         scene.physics.moveToObject(new_enemy, player, 100);
     }
     else if (type === "follow"){
+        // same params as enemy1
         var new_enemy = enemies.create(x, y, "enemy3");
-        timers.push(scene.time.addEvent({delay :params.fire, loop: true, callback:shoot_bullet, args : [new_enemy, "follow bullet", {speed:500, follow_times : [1000, 2000, 3000, 4000]}]}) );
+
+        timers.push(scene.time.addEvent({delay :params.fire, loop: true, callback:shoot_bullet, args : [new_enemy, "follow bullet", {speed:400, follow_times : [1000, 2000, 3000, 4000]}]}) );
+
         scene.physics.moveTo(new_enemy, Math.random() * game_width ,Math.random() * game_height * 0.8, 100);
+
         timers.push(scene.time.addEvent({delay : 5000, callback:(x) => {x.setVelocityX(0); x.setVelocityY(0)}, args:[new_enemy] }));
     }
+    else if (type === "spewer"){
+        /* fire : rate of fire,
+        spread_amount : number of bullets per shot
+        spread_angle : angle between shots
+        */
+        var new_enemy = enemies.create(x, y, "enemy4");
+        for(var i = 0; i < params.spread_amount ; i++){
+            timers.push(scene.time.addEvent({
+                delay : params.fire,
+                loop:true,
+                callback: function(angle, source, dest){
+                    var x = dest.x - source.x;
+                    var y = -(dest.y - source.y);
+                    //rotate by angle
+                    // (x+iy)(cos t + i sin(t))
+                    // = x cos(t) - y sin(t)
+                    // + i (x sin(t) + y cos(t))
+                    var newX = x*Math.cos(angle) - y * Math.sin(angle);
+                    var newY = x*Math.sin(angle) + y * Math.cos(angle);
+                    shoot_bullet(source, "fixed bullet",{x : source.x + newX, y : -newY+ source.y, speed : 350})
+                },
+                args : [params.spread_angle * i - params.spread_angle * params.spread_amount /2, new_enemy, player]
+            }))
+        }
+
+        scene.physics.moveTo(new_enemy, Math.random() * game_width ,Math.random() * game_height * 0.8, 100);
+        
+        timers.push(scene.time.addEvent({delay : 5000, callback:(x) => {x.setVelocityX(0); x.setVelocityY(0)}, args:[new_enemy] }));
+
+
+    }
+
     else if (type === "spawner1"){ 
         /*
             direction[number, number] (where to go)
@@ -321,6 +395,43 @@ function spawn_enemy(type:string, params : any,  x : number, y : number){
             args : [new_enemy]
         })
         timers.push(timer);
+    } else if (type === "bh layer"){
+        // fire (firing speed) and strength and duration (strength  of black hole), speed
+        var new_enemy = enemies.create(x, y, "black_hole_layer");
+        new_enemy.setVelocityX(params.speed);
+        timers.push(scene.time.addEvent({
+            delay : params.fire,
+             loop:true, 
+             callback:function(e, strength, duration){
+                add_black_hole(Math.random().toString(), e.x, e.y, strength, duration);
+
+            }, 
+            args : [new_enemy, params.strength, params.duration]}))
+        
+    }else if (type === "laser"){
+        // only one param, which is delay. 
+        var new_enemy = enemies.create(x, y, "laser");
+        new_enemy.setVelocityY(10);
+        // warning
+        timers.push(scene.time.addEvent({
+            callback: (e) => enemy_add_image("warn", "laser_charged", e, 0, 30),
+            delay : params.delay - 2000,
+            args : [new_enemy]
+        }))
+        // fire
+        for(var i=0; i < 20; i++){
+            timers.push(scene.time.addEvent({
+                callback: (e) => shoot_bullet(e, "laser", {spread:50}),
+                delay : params.delay + i*100,
+                args : [new_enemy]
+            }))
+        }
+        // destroy
+        timers.push(scene.time.addEvent({
+            callback: (e) => destroy_enemy(e),
+            delay : params.delay + 21*100,
+            args : [new_enemy]
+        }))
     }else {
         throw "unknown type" + type;
     }
@@ -339,18 +450,29 @@ function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string,
         var bullet = bullets.create(enemy.x, enemy.y, "bullet1");
         scene.physics.moveToObject(bullet, player, params.speed);
     }
-    if(type === "offset bullet"){
+    else if(type === "fixed bullet"){
+        // param : speed, x, y
+        var bullet = bullets.create(enemy.x, enemy.y, "bullet1");
+        scene.physics.moveTo(bullet, params.x, params.y, params.speed);
+    }
+    else if(type === "offset bullet"){
         //params = {x, y, speed} : the location (relative to player) to aim at.
         var bullet = bullets.create(enemy.x, enemy.y, "bullet1");
         scene.physics.moveTo(bullet, player.x+params.x, player.y + params.y, params.speed);
     }
-    if(type === "follow bullet"){
+    else if(type === "follow bullet"){
         //params : speed (number),  follow_times (list of numbers)
         var bullet = bullets.create(enemy.x, enemy.y, "bullet1");
         scene.physics.moveToObject(bullet, player, params.speed);
         for(var i of params.follow_times){
             timers.push(scene.time.addEvent({delay :i, callback: (x, s) => scene.physics.moveToObject(x, player, s), args : [bullet, params.speed]}) );
         }
+        
+    }
+    else if (type === "laser"){
+        // param is a number, representing spread
+        var bullet = bullets.create(enemy.x + (Math.random()-0.5)*params["spread"],0, "laser_bullet");
+        bullet.setVelocityY(2000);
         
     }
     bullet.setData("timers", timers);
@@ -461,10 +583,15 @@ function update_player_bullets_helper(name : string, type : string, params:{[key
 
 function update_spawners_based_on_state(){
     for(var item of game_state.spawners){
-        update_spawners(spawners[item]);
+        update_spawners([spawners[item]]);
     }
 }
 function update_player_bullets_based_on_state(){
+    // todo: in the future, we want to compute it here , (and wipe out all of the old timers, if needed), and replace them with new ones.
+
+
+    // priority should be based on being recent, not strength 
+
     for(var item of game_state.upgrades){
         for(var upgrade of purchasable_upgrades[item]){
             update_player_bullets_helper(...upgrade);
@@ -524,16 +651,15 @@ function slow_update(){ // called every second
                 scene.physics.moveToObject(en, player, 100);
             }
         }
+        if(en.getData("type") === "bh layer"){
+            if(en.y > 790){
+                destroy_enemy(en);
+            }
+        }
     }
 
     // pick side
-    if(texts.next_pick != undefined){
-        texts.next_pick.destroy();
-        delete texts.next_pick;
-    }
-
-
-    console.log(texts.next_pick)
+    remove_text("next_pick");
     if(game_state.next_pick_time !== undefined){
         game_state.next_pick_time_so_far += 1;
         if(game_state.next_pick_time_so_far >= game_state.next_pick_time){
@@ -541,53 +667,114 @@ function slow_update(){ // called every second
         }
 
         if(game_state.next_pick_time - game_state.next_pick_time_so_far  <= 5){
-            console.log(game_state.next_pick_time - game_state.next_pick_time_so_far);
-            texts.next_pick = scene.add.text(game_width/2-40, 100, "Next pick in " +(game_state.next_pick_time - game_state.next_pick_time_so_far ));
-            texts.next_pick.active = true;
+
+            set_text("next_pick", game_width/2 - 40, 100, "Pick a side in " + (game_state.next_pick_time - game_state.next_pick_time_so_far ));
         } 
         GameComponent.forceUpdate();
     }
 
 }
 
+function set_text(key:string, x:number, y:number, text:string, time?:number){
+    if(texts[key] !== undefined){
+        remove_text(key);
+    }
+    texts[key] = scene.add.text(x, y, text);
+    if(time !== undefined){
+        text_timers[key] = scene.time.addEvent({callback:remove_text, args:[key], delay : time});
+    }
+}
+function remove_text(key:string){
+    if(texts[key] !== undefined){
+        texts[key].destroy();
+        delete texts[key];
+    }
+    if(text_timers[key] !== undefined){
+        text_timers[key].remove();
+        delete text_timers[key];
+    }
+
+}
+function add_black_hole(key, x, y, strength, duration){
+    var bh_img = scene.physics.add.image(x,y,"black_hole");
+    black_holes[key] = [x, y, strength, bh_img];
+    scene.time.addEvent({callback:remove_black_hole, delay:duration, args:[key]});
+}
+function remove_black_hole(key){
+    if(black_holes[key] !== undefined){
+        black_holes[key][3].destroy();
+        delete black_holes[key];
+    }
+}
+var update_turn = 0;
+var x : any= undefined; 
 function update(this:any)
 {   
-    // enemies images
-    for(var item of enemies.children.entries){
-        push_in(item)
-        for(var image of item.getData("images")){
-            image.image.setX(item.x + image.x);
-            image.image.setY(item.y + image.y);
-            image.image.depth = 1;
-        }
+    if(x === undefined){
+        x = setTimeout(() => console.log(update_turn), 10000);
     }
-    // destroy bad bullets
-    for(var item of bullets.children.entries){
-        if(out_of_bounds(item)){
-            destroy_bullet(item);
-        }
-    }
-    for(var item of player_bullets.children.entries){
-        if(out_of_bounds(item)){
-            destroy_bullet(item);
-        }
-    }
+    update_turn += 1;
+    const frames_per_check = 2
+    if(update_turn % frames_per_check === 0){
 
-    // scroll background
-    bg.tilePositionY -= 1;
-    // move player
-    push_in(player);
-    // player moves to mouse
-    if(keys["mouseX"] !== undefined && keys["mouseY"] !== undefined){
-        var distance = Phaser.Math.Distance.Between(player.x, player.y, keys["mouseX"], keys["mouseY"] );
-        if(distance > 10){
-            scene.physics.moveTo(player, keys["mouseX"], keys["mouseY"], player_speed);
-        } else{
-            scene.physics.moveTo(player, keys["mouseX"], keys["mouseY"], 0, 0);
+        // enemies images
+        for(var item of enemies.children.entries){
+            push_in(item)
+            for(var image of item.getData("images")){
+                image.image.setX(item.x + image.x);
+                image.image.setY(item.y + image.y);
+                image.image.depth = 1;
+            }
         }
-    }
+        // destroy bad bullets
+        for(var item of bullets.children.entries){
+            if(out_of_bounds(item)){
+                destroy_bullet(item);
+            }
+        }
+        for(var item of player_bullets.children.entries){
+            if(out_of_bounds(item)){
+                destroy_bullet(item);
+            }
+        }
 
-    
+        // scroll background
+        bg.tilePositionY -= 1;
+        // move player
+        push_in(player);
+        // player moves to mouse
+        var vx :number = 0;
+        var vy :number = 0;
+
+        if(keys["mouseX"] !== undefined && keys["mouseY"] !== undefined){
+            // get angle 
+            var mouse_vect=  new Phaser.Math.Vector2(keys["mouseX"] - player.x, keys["mouseY"] - player.y);
+            var distance = mouse_vect.length();
+            if(distance < 0.001){
+                // nothing to do
+                ;  
+            } else {
+                mouse_vect.normalize();
+                var speed = game_state.player_speed;
+                // for each black hole , take the cosine with the player to mouse vector , and project it.
+                for(var bh of Object.keys(black_holes)){
+                    var this_black_hole = black_holes[bh];
+                    var bh_vect = new Phaser.Math.Vector2(this_black_hole[0] - player.x, this_black_hole[1] - player.y);
+                    bh_vect.normalize();
+                    speed += this_black_hole[2] * bh_vect.dot(mouse_vect);
+                }
+          //     console.log([speed, fps, speed/fps, distance])
+                speed *= frames_per_check;
+                if(speed/fps > distance/2.1){
+                    player.setX(keys["mouseX"]);
+                    player.setY(keys["mouseY"]);
+                } else {
+                    player.setX(player.x + mouse_vect.x * speed/fps);
+                    player.setY(player.y + mouse_vect.y * speed/fps);
+                }
+            }
+        }    
+    }
 }
 
 var keys : {[key:string]:any} = {};
@@ -610,19 +797,19 @@ document.addEventListener("mousemove", mouseMove);
 function pause(){
     if(scene !== undefined){
         scene.physics.pause();
-        scene.time.paused = true;
+        scene.scene.pause("default");
     }
 }
 
 function unpause(){
     if(scene !== undefined){
         scene.physics.resume();
-        scene.time.paused = false;
+        scene.scene.resume("default");
     } 
 }
 
 function set_pick_side(){
-    game_state.next_pick_time = 10;
+    game_state.next_pick_time = 200;
     game_state.next_pick_time_so_far = 0;
     game_state.next_pick_choices = ["multi", "spawner"]
 }
@@ -643,12 +830,19 @@ class Game extends React.Component{
 				create: create,
 				update: update
 			},
+            fps : {
+                min : fps,
+                target : fps
+            },
+            render : {
+                powerPreference : "low-power"
+            },
             physics: {
                 default: 'arcade',
                 arcade: {
                     fixedStep : true,
                     debug: false,
-                    fps: 30
+                    fps: fps
                 }
             },
 
@@ -673,13 +867,21 @@ class Game extends React.Component{
         pause();
     }
     componentDidUpdate(){
-        if(this.state.display === "game"){
-            this.gameRef.current.appendChild(this.game.canvas);
+        try{
+            if(this.state.display === "game"){
+                this.gameRef.current.appendChild(this.game.canvas);
+            }
+        } catch(e){
+            ;
         }
     }
 	componentDidMount(){
-		this.gameRef.current.appendChild(this.game.canvas);
-        unpause();
+        try { 
+            this.gameRef.current.appendChild(this.game.canvas);
+            unpause();
+        } catch(e){
+
+        }
 	}
     return_from_upgrades(e : Set<string> ){
         for(var item of e){
@@ -696,10 +898,14 @@ class Game extends React.Component{
         game_state.next_pick_time = undefined;
         game_state.next_pick_time_so_far = undefined;
         game_state.next_pick_choices = undefined;
-        this.setState({"display" : "game"});
+        this.setState({"display" : "upgrades"});
     }
 
 	render():any{
+        if(dont_render_both == false){
+            dont_render_both = true; 
+            return <></>;
+        }
         if(this.state.display !== "game"){
             pause();
             
@@ -711,10 +917,13 @@ class Game extends React.Component{
                 return <Pick return_fn={this.return_from_pick} game_state={game_state}/>
             }
         } else { 
-            unpause();
+            setTimeout(unpause, 700);
             return <div>
+            {/*
             <button onClick={function(this:React.Component){this.setState({display:"upgrades"})}.bind(this)}>Upgrades</button>
             <button onClick={set_pick_side}>pick</button><br />
+            
+            */}
             Next side pick : {
                 function(){
                     if(game_state.next_pick_time !== undefined){
@@ -725,12 +934,13 @@ class Game extends React.Component{
                 }()
             }<br /> 
             {game_state.counter} items collected, {game_state.bullets} bullet hits
-                <div ref={this.gameRef} id="game"></div>
+                <div style={{"position":"absolute", "top":100, "left":10}}ref={this.gameRef} id="game"></div>
             </div>
         }
 	}
 	
 }
+
 
 
 export default Game; 

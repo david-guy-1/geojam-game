@@ -1,0 +1,19 @@
+<html>
+<body>
+
+<p>A function is triggered when the user releases a key in the input field. The function transforms the character to upper case.</p>
+Enter your name: <input type="text" id="fname">
+<div id="abc">a </div>
+<script>
+ var object = document.getElementById("fname");
+object.addEventListener("keydown", myFunction);
+
+function myFunction(e) {
+//alert("A");
+  var x = document.getElementById("fname");
+document.getElementById("abc").innerHTML = e.code;
+}
+</script>
+
+</body>
+</html>

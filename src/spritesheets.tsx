@@ -31,11 +31,29 @@ var spritesheets:spritesheet = {
         startFrame: 0,
         endFrame: 4
     },
+    "spewer_boom":{
+        frameWidth: 40,
+        frameHeight: 40,
+        startFrame: 0,
+        endFrame: 4
+    },
     "turret_disappear":{
         frameWidth: 23,
         frameHeight: 23,
         startFrame: 0,
         endFrame: 4
-}
+    },
+    "bh layer_boom":{
+        frameWidth: 40,
+        frameHeight: 40,
+        startFrame: 0,
+        endFrame: 4
+    },
+    "laser_boom":{
+        frameWidth: 60,
+        frameHeight: 60,
+        startFrame: 0,
+        endFrame: 3
+    }
 }
 export default spritesheets;
