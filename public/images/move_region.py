@@ -63,9 +63,10 @@ def move_region(image, tlx, tly, brx, bry, displace_x, displace_y, copy_=False):
 ##        data[x,y,3]= int(data[x,y,3]*val[1])
 ##
 i=3
-width = 40
-height = 70
-data = move_region("sheets/energy_ball_thrower_boom.png", width*i, 0, width*(i+1), height, width, 0, True)
+width = 800
+height = 55
+
+data = move_region("sheets/wall_boom.png", width*i, 0, width*(i+1), height, width, 0, True)
 #imshow("", data)
-cv2.imwrite("sheets/energy_ball_thrower_boom.png", data)
+cv2.imwrite("sheets/wall_boom.png", data)
     

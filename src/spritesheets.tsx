@@ -67,5 +67,11 @@ var spritesheets:spritesheet = {
         startFrame: 0,
         endFrame: 4
     },
+    "wall_boom":{
+        frameWidth: 800,
+        frameHeight: 55,
+        startFrame: 0,
+        endFrame: 4
+    },
 }
 export default spritesheets;

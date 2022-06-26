@@ -11,22 +11,23 @@ var upgrades = [
         ["main rate 2",[306,105,337,203],"Fire even more rapidly",["main rate"]],
         ["burst speed",[337,203,439,203],"Burst fire more often",["main spread", "main rate", "player speed"]],
         ["burst bullets",[439,203,464,105],"Burst fires more bullets",["main spread", "main rate", "player speed"]],
-        ["health",[464,105,385,41],"Ship has more health",["main spread", "main rate", "player speed"]],
+        ["invincibility",[464,105,385,41],"Invinciibility time after getting hit lasts longer",["main spread", "main rate", "player speed"]],
 
 	// laser
         // JSON.stringify(x.map((x) => x[0]))
-	//["main spread 2","main rate 2","burst speed","burst bullets","health"]
+	//["main spread 2","main rate 2","burst speed","burst bullets","invincibility"]
 
 	//["name", [], "desc", []]
 
 	["bullet size",[62,313,135,334],"Bigger bullets",[]],
 	["main rate 3",[135,334,209,313],"Fires super fast",["main rate 2"]],
 	["main spread 3",[209,313,189,383],"Fires 7 bullets at once",["main spread 2"]],
-	["turret spawn",[189,383,209,456],"Drop turrets more often",["main spread 2","main rate 2","burst speed","burst bullets","health"]],
-	["turret delay",[209,456,135,440],"Turret has lower delay before firing",["main spread 2","main rate 2","burst speed","burst bullets","health"]],
-	["turret bullets",[135,440,62,456],"Turret shoots more bullets",["main spread 2","main rate 2","burst speed","burst bullets","health"]],
+	["turret spawn",[189,383,209,456],"Drop turrets more often",["main spread 2","main rate 2","burst speed","burst bullets","invincibility"]],
+	["turret delay",[209,456,135,440],"Turret has lower delay before firing",["main spread 2","main rate 2","burst speed","burst bullets","invincibility"]],
+	["turret bullets",[135,440,62,456],"Turret shoots more bullets",["main spread 2","main rate 2","burst speed","burst bullets","invincibility"]],
 	["burst speed 2",[62,456,83,383],"Burst fires even more often",["burst speed"]],
 	["burst bullets 2",[83,383,62,313],"Burst fires even more bullets",["burst bullets"]],
+	
 	
     ["seeker bullets",[407,262,437,347],"Shoot bullets that seek out the enemy",["main spread 3"]],
 	["burst speed 3",[437,347,531,347],"Shoots bursts even faster",["burst speed 2"]],
