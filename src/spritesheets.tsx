@@ -54,6 +54,18 @@ var spritesheets:spritesheet = {
         frameHeight: 60,
         startFrame: 0,
         endFrame: 3
-    }
+    },
+    "strafe_boom":{
+        frameWidth: 40,
+        frameHeight: 40,
+        startFrame: 0,
+        endFrame: 4
+    },
+    "energy_ball_thrower_boom":{
+        frameWidth: 40,
+        frameHeight: 70,
+        startFrame: 0,
+        endFrame: 4
+    },
 }
 export default spritesheets;

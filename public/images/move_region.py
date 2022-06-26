@@ -62,10 +62,10 @@ def move_region(image, tlx, tly, brx, bry, displace_x, displace_y, copy_=False):
 ##        val = lerp(0, 0.3, 255, 1, data[x,y,0]/255)
 ##        data[x,y,3]= int(data[x,y,3]*val[1])
 ##
-i=2
-size = 60
-
-data = move_region("sheets/laser_boom.png", size*i, 0, size*(i+1), size, size, 0, True)
+i=3
+width = 40
+height = 70
+data = move_region("sheets/energy_ball_thrower_boom.png", width*i, 0, width*(i+1), height, width, 0, True)
 #imshow("", data)
-cv2.imwrite("sheets/laser_boom.png", data)
+cv2.imwrite("sheets/energy_ball_thrower_boom.png", data)
     

@@ -18,7 +18,7 @@ TODO:
 make upgrades spawn (done)
 make tutorial (done)
 add code for when/how pick a side works (done) 
-make bosses
+make bosses 
 upgrades should be shapes instead of buttons
 player bullet should be computed from upgrades
 add health bar / penalty for getting hit
@@ -43,7 +43,7 @@ upgrades + pick a side interface
 process for adding a new enemy:
 - draw it and draw it's explosion
 - update images
-- make a spawner for it
+- make a spawner for it (REMEMBER KEY AND PRIORITY)
 - in spawn_enemy function, add how it spawns 
 
 default naming conventions: 
@@ -119,11 +119,11 @@ var game_state : game_state =  {
     counter : 0,
     bullets : 0,
     upgrades : ["base"],
-    spawners : ["base"],
+    spawners : ["energy_ball_thrower"],
     player_speed : 500,
-    upgrade_times : [5, 25, 40, 55, 70, 90],
-    pick_side_index : 6,
-    pick_side_times : [20, 30, 45, 65, 80, 120, 126],
+    upgrade_times : [5, 25, 35, 55],
+    pick_side_index : 0,
+    pick_side_times : [20, 30, 40, 50, 60, 70],
     boss_name : "Blue Wave"
 }
 
@@ -158,9 +158,11 @@ while(True):
 	input("")
 
     */
-	var enemy_images : string[] = ['black_hole_layer', 'Blue Wave', 'boss_weak_spot', 'enemy1', 'enemy2', 'enemy3', 'enemy4', 'laser', 'spawner1']
-	var images : string[] = ['background', 'background2', 'black_hole', 'blank', 'bullet1', 'energy_ball', 'laser_bullet', 'laser_charged', 'pbullet1', 'pburst_bullet', 'player', 'playerup', 'player_indicator', 'player_upgraded', 'turret', 'upgrade', 'wide_bullet']
-    
+
+	var enemy_images : string[] = ['black_hole_layer', 'Blue Wave', 'boss_weak_spot', 'enemy1', 'enemy2', 'enemy3', 'enemy4', 'energy_ball_thrower', 'laser', 'spawner1', 'strafe']
+	var images : string[] = ['background', 'background2', 'black_hole', 'blank', 'bullet1', 'energy_ball', 'laser_bullet', 'laser_charged', 'pbullet1', 'pburst_bullet', 'player', 'playerup', 'player_indicator', 'player_upgraded', 'strafe_bullet', 'turret', 'upgrade', 'wide_bullet']
+
+
 
     
     for(var item of images){
@@ -199,17 +201,14 @@ function create(this:any)
     update_player_bullets_based_on_state();
     set_pick_side_from_state();
     set_upgrades_from_state();
-
+    update_spawners_based_on_state();
 */
-    // initial update
-    update_player_bullets_based_on_state();
-    
-    scene.time.addEvent({callback:spawn_boss, args:["Blue Wave"], delay:1000})//DEBUG
-    //update_spawners_based_on_state();
-    //scene.time.addEvent({callback:spawn_boss_from_state, args:["Blue Wave"], delay:5000})//DEBUG
-    //set_pick_side_from_state();
-    set_upgrades_from_state();
 
+    update_player_bullets_based_on_state();
+    set_pick_side_from_state();
+    set_upgrades_from_state();
+    update_spawners_based_on_state();
+    
     // tutorial text
     scene.time.addEvent({
         callback:set_text,
@@ -461,7 +460,42 @@ function out_of_bounds(s:any){
         new_enemy.setData("disable_default_explode",true)
         new_enemy.setData("parent" ,params.parent);
 
-    }else {
+    }
+    else if (type === "strafe"){
+        //fire, speed
+        type_assert(params, {
+            fire : "number", speed:"number"});
+
+        var new_enemy = enemies.create(x, y, "strafe");
+        new_enemy.setVelocityX(params.speed);
+        timers.push(scene.time.addEvent({
+            callback: (e) => shoot_bullet(e, "customizable",{"end_x" : e.x, "end_y":900,speed:params.speed,image:'strafe_bullet'},e.x, e.y),
+            delay : params.fire,
+            args : [new_enemy]
+        }))        
+        new_enemy.setData("speed",params.speed);
+    }
+    else if (type === "energy_ball_thrower"){
+        //fire, speed
+        type_assert(params, {
+            fire : "number", speed:"number",number_of_bullets : "number"});
+
+        var new_enemy = enemies.create(x, y, "strafe");
+        new_enemy.setVelocityX(params.speed);
+        // shoot energy balls
+        timers.push(scene.time.addEvent({
+            callback: (e,number_of_bullets) => shoot_bullet(e, "energy ball",{speed:700,explode_delay : (game_height - e.y)/700 *Math.random() * 900 , "explode_number" : number_of_bullets},e.x, e.y),
+            delay : params.fire,
+            args : [new_enemy,params.number_of_bullets]
+        }))        
+        // move to random location
+        timers.push(scene.time.addEvent({
+            callback : (e) => scene.physics.moveTo(e, Math.random() * game_width, Math.random() * 300 + 75, e.getData("speed")), args :[new_enemy], delay : 3000, loop : true
+        }))
+        new_enemy.setData("speed",params.speed);
+    }
+    
+    else {
         throw "unknown type" + type;
     }
     new_enemy.setData("hp", params.hp);
@@ -620,9 +654,6 @@ function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string,
         type_assert(params, {"speed" : "number","x" : "number","y" : "number"});
 
         var bullet = bullets.create(start_x, start_y, "bullet1");
-        if(params.x === undefined || params.y === undefined || params.speed === undefined){
-            throw "undefined stuff in fixed bullet";
-        }
         scene.physics.moveTo(bullet, params.x, params.y, params.speed);
     }
 
@@ -671,8 +702,10 @@ function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string,
     else if (type === "customizable"){
         // bullet that shoots other bullets
         // end_x, end_y, delay, speed, child_type, child_params, image
-        type_assert(params, {"end_x" : "number","end_y" : "number","delay" : "number","speed" : "number", "child_type" : "string", "child_params" : "object", "image" : "string"});
-
+        type_assert(params, {"end_x" : "number","end_y" : "number","speed" : "number","image" : "string"})
+        if(params.child_type !== undefined){
+            type_assert(params, {"child_type" : "string","delay" : "number", "child_params" : "object"});
+        }
         var bullet = bullets.create(start_x,start_y, params.image);
         if(params.child_type !== undefined){
             timers.push(scene.time.addEvent({
@@ -950,6 +983,7 @@ function prepare_spawn_boss(name : string){
 function spawn_boss(name : string){
     var images:typeof Phaser.Game.image[] = [];
     var timers:typeof Phaser.Time.TimerEvent[]= [];
+    GameComponent.set_size(GameComponent.bossRef.current, 1);
     if(name === "Blue Wave"){
         game_state.boss_health = 10;
         game_state.boss_max_health=10;
@@ -1000,20 +1034,22 @@ function spawn_boss(name : string){
 
                // 3 cannon attack
                
-
-                timers.push(scene.time.addEvent({
-                    callback : function(boss){
-                        var x_vals = [352,416,487]
-                        var y_vals = [161,157,162]
-                        for(var i=0; i < 3; i++) {
-                            shoot_bullet(boss, "fixed bullet", {x : player.x , y : player.y, speed  : 400 + Math.random() * 100}, boss.x - 400 + x_vals[i], boss.y - 100 + y_vals[i] )
-                        }
-                    },
-                    delay : 931,
-                    args : [boss],
-                    loop : true
-                }))
-
+                // 3 seconds of intense firing every 6 seconds
+                for(var i=0; i < 30; i++){
+                    timers.push(scene.time.addEvent({
+                        callback : function(boss){
+                            var x_vals = [352,416,487]
+                            var y_vals = [161,157,162]
+                            for(var i=0; i < 3; i++) {
+                                shoot_bullet(boss, "fixed bullet", {x : boss.x - 400 + x_vals[i] , y : 999, speed  : 400 + Math.random() * 100}, boss.x - 400 + x_vals[i], boss.y - 100 + y_vals[i] )
+                            }
+                        },
+                        delay : 6000,
+                        startAt : 150 *i,
+                        args : [boss],
+                        loop : true
+                    }))
+                }
                 // spawn enemies
                 
                 timers.push(scene.time.addEvent({
@@ -1040,7 +1076,7 @@ function spawn_boss(name : string){
 
                         shoot_bullet(boss, "energy ball", {
                                 speed : 400,
-                                explode_delay : 1500,
+                                explode_delay : 800,
                                 explode_number : 7}, 628, 121)             
                     },
                     delay : 2541 ,
@@ -1063,7 +1099,7 @@ function spawn_boss(name : string){
 
 // last pick, spawn boss
 function spawn_boss_from_state(){
-    GameComponent.set_size(GameComponent.bossRef.current, 1);
+    
     var time = game_state.pick_side_times[game_state.pick_side_times.length-1] - game_state.pick_side_times[game_state.pick_side_times.length-2]
                 
     scene.time.addEvent({
@@ -1077,6 +1113,8 @@ function spawn_boss_from_state(){
         delay : (time+10) * 1000,
         args : [game_state.boss_name]
     })
+    game_state.boss_spawning_in = time;
+    game_state.boss_spawning_in_so_far =0;
 }
 
 function boss_defeated(name : string ){
@@ -1084,7 +1122,7 @@ function boss_defeated(name : string ){
     game_state.upgrade_times = [18, 36, 57, 64, 82, 100, 121]
     game_state.pick_side_index = 0;
     game_state.pick_side_times = [20, 40, 60, 85, 110, 130, 150]
-    game_state.boss_name = "Oblivion"
+    game_state.boss_name = "Sunshine"
     game_state.boss_health = undefined;
     game_state.boss_max_health = undefined;
     game_state.boss_spawning_in_so_far = undefined;
@@ -1147,10 +1185,19 @@ function slow_update(){ // called every second
                 scene.physics.moveToObject(en, player, 100);
             }
         }
+        //destroy old black hole layers
         if(en.getData("type") === "bh layer"){
             if(en.y > 790){
                 destroy_enemy(en);
             }
+        }
+        if(en.getData("type") === "strafe"){
+            if(en.x > 750){
+                en.setVelocityX(-en.getData("speed"));
+            } else if(en.x < 50){
+                en.setVelocityX(en.getData("speed"));
+            }
+
         }
     }
     // items that move too far down should stop moving
@@ -1178,9 +1225,14 @@ function slow_update(){ // called every second
         
     }
     if(game_state.boss_spawning_in !== undefined){
+        game_state.boss_spawning_in_so_far += 1;
         GameComponent.set_color(GameComponent.progressRef.current, "red");
         var progress = game_state.boss_spawning_in_so_far/game_state.boss_spawning_in
         GameComponent.set_size(GameComponent.progressRef.current, progress);
+        if(game_state.boss_spawning_in_so_far === game_state.boss_spawning_in){
+            GameComponent.set_size(GameComponent.progressRef.current, 0);
+            game_state.boss_spawning_in = undefined;
+        }
     }
     GameComponent.forceUpdate();
 

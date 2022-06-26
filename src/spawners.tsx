@@ -24,7 +24,7 @@ copy and paste the following
 */
 var spawners:spawners= {
     "base" : [{
-        delay : 4000,
+        delay : 1000,
         type : "enemy1",
         params : {"fire":1000,hp:1},
         x : () => Math.random() * game_width,
@@ -33,7 +33,7 @@ var spawners:spawners= {
     },"base",0, 1, [], 'Basic Enemy','enemy1'], 
   
     "rapid_spawn" : [{
-        delay : 2500,
+        delay : 700,
         type : "enemy1",
         params : {"fire":1000,hp:1},
         x : () => Math.random() * game_width,
@@ -42,7 +42,7 @@ var spawners:spawners= {
     },"base",1, 0.8, ["base"], "Spawns enemies much faster", "enemy1"], 
 
     "rapid_spawn_2" : [{
-        delay : 1500,
+        delay : 400,
         type : "enemy1",
         params : {"fire":1000,hp:1},
         x : () => Math.random() * game_width,
@@ -52,7 +52,7 @@ var spawners:spawners= {
 
 
     "black hole layer" : [{
-        delay : 6000,
+        delay : 3000,
         type : "bh layer",
         params : {"fire":4000,hp:2, strength:140, speed : 100, duration : 3000},
         x : () => -10,
@@ -61,7 +61,7 @@ var spawners:spawners= {
     },"bh layer",0,1.5, [] ,'Puts down black holes to suck you in','black_hole_layer' ], 
 
     "black hole layer 2" : [{
-        delay : 4000,
+        delay : 2000,
         type : "bh layer",
         params : {"fire":3000,hp:2, strength:240, speed : 100, duration : 3000},
         x : () => -10,
@@ -71,7 +71,7 @@ var spawners:spawners= {
 
 
     "multi" : [{
-        delay : 3400,
+        delay : 2400,
         type : "multi",
         params : {"fire":1500,hp:2},
         x : () => Math.random() * game_width,
@@ -81,7 +81,7 @@ var spawners:spawners= {
     "multi", 0,0.9, [], "Shoots 3 bullets at once", "enemy2"],
 
     "multi 2" : [{
-        delay : 2400,
+        delay : 1800,
         type : "multi",
         params : {"fire":1500,hp:2},
         x : () => Math.random() * game_width,
@@ -91,7 +91,7 @@ var spawners:spawners= {
     "multi", 0,0.8, ["multi"], "Multi shooter spawns faster", "enemy2"],  
 
     "follow" : [{
-        delay : 1500,
+        delay : 1300,
         type : "follow",
         params : {"fire":1600,hp:1},
         x : () => Math.random() * game_width,
@@ -102,7 +102,7 @@ var spawners:spawners= {
 
 
     "spewer" : [{
-        delay : 1300,
+        delay : 1100,
         type : "spewer",
         params : {"fire":4300,"spread_amount":10, spread_angle : 0.1,hp:2},
         x : () => Math.random() * game_width,
@@ -111,7 +111,7 @@ var spawners:spawners= {
     },"spewer",0, 2,[],"Shoots 10 bullets at once, but slow fire rate"], 
 
     "spewer 2" : [{
-        delay : 1300,
+        delay : 800,
         type : "spewer",
         params : {"fire":2300,"spread_amount":10, spread_angle : 0.1,hp:2},
         x : () => Math.random() * game_width,
@@ -122,7 +122,7 @@ var spawners:spawners= {
 
     "spawner":[
         {
-                delay : 5000,
+                delay : 4000,
                 type : "spawner1",
                 params: {},
                 paramsFn : function(){return {
@@ -142,7 +142,7 @@ var spawners:spawners= {
 
     "spawner 2":[
         {
-                delay : 5000,
+                delay : 3000,
                 type : "spawner1",
                 params: {},
                 paramsFn : function(){return {
@@ -162,7 +162,7 @@ var spawners:spawners= {
 
 
     "laser" : [{
-        delay : 6000,
+        delay : 1400,
         type : "laser",
         params : {"delay":4000,hp:3},
         x : () => Math.random() * game_width,
@@ -171,13 +171,49 @@ var spawners:spawners= {
     },"laser",0,1, [], "Charges for a while then shoots lasers", "laser"], 
 
     "laser 2" : [{
-        delay : 4000,
+        delay : 1000,
         type : "laser",
         params : {"delay":3000,hp:3},
         x : () => Math.random() * game_width,
         y : () => -10,
         loop:true
     },"laser",1,2, ["laser"], "Spawns faster and charge time decreased", "laser"], 
+
+    "strafe" :  [{
+        delay : 2500,
+        type : "strafe",
+        params : {"fire":1000,hp:2,speed:100},
+        x : () => -50,
+        y : () => Math.random() * 100+100,
+        loop:true
+    },"strafe",0, 1, [], "Moves back and forth at the top", "strafe"], 
+
+    "strafe 2" :  [{
+        delay : 2500,
+        type : "strafe",
+        params : {"fire":600,hp:2,speed:200},
+        x : () => -50,
+        y : () => Math.random() * 100+100,
+        loop:true
+    },"strafe",1, 0.4, ["strafe"], "Strafer moves faster and shoots more often", "strafe"], 
+
+    "energy_ball_thrower" :  [{
+        delay : 2500,
+        type : "energy_ball_thrower",
+        params : {"fire":1000,hp:2,speed:200,number_of_bullets:6},
+        x : () => -50,
+        y : () => Math.random() * 100+100,
+        loop:true
+    },"energy_ball_thrower",0, 1, [], "Throws energy balls that explode", "energy_ball_thrower.png"], 
+
+    "energy_ball_thrower 2" :  [{
+        delay : 2500,
+        type : "energy_ball_thrower",
+        params : {"fire":1000,hp:2,speed:200},
+        x : () => -50,
+        y : () => Math.random() * 100+100,
+        loop:true
+    },"energy_ball_thrower",1, 1, [], "Throws energy balls that explode", "energy_ball_thrower.png"], 
 
 }
 export default spawners

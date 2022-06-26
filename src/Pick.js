@@ -1,6 +1,9 @@
 
 import spawners from './spawners.tsx';
 import React from 'react';
+const game_box_top = 100;
+const game_box_left = 50;
+
 class Pick extends React.Component{
     constructor(props){
         super(props);
@@ -31,12 +34,12 @@ class Pick extends React.Component{
         var data = [spawners[choices[0]], spawners[choices[1]]]
         return <div>
             <h1> Pick a side</h1>
-            <div style={{width:600, height:300, border:"1px solid black"}}><br />
+            <div style={{width:280, height:560, border:"1px solid black", position :"absolute", top:game_box_top, left:game_box_left,padding:10,backgroundColor : "#ccccff"}}><br />
                 <button onClick={function(){this.click(0)}.bind(this)}>Pick (Q)</button>
                 <img src={"images/enemies/" + data[0][6]+".png" }/>  <br />
                 {data[0][5]}
-            </div><br />
-            <div style={{width:600, height:300, border:"1px solid black"}}>
+            </div>
+            <div style={{width:280, height:560, border:"1px solid black", position :"absolute", top:game_box_top, left:game_box_left+300,padding:10, backgroundColor : "#ffcccc"}}>
             <button onClick={function(){this.click(1)}.bind(this)}>Pick (E)</button> 
             <img src={"images/enemies/" + data[1][6]+".png" }/><br />
                 {data[1][5]}
