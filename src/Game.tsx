@@ -93,6 +93,11 @@ var black_holes : {[key:string] : [number,number, number, typeof Phaser.Game.ima
 var texts : {[key:string] : typeof Phaser.GameObjects.Text} = {};
 var text_timers : {[key:string] : typeof Phaser.Time.TimerEvent} = {}
 
+//images
+
+var sc_images : {[key:string] : typeof Phaser.Game.image} = {};
+var sc_images_timers : {[key:string] : typeof Phaser.Time.TimerEvent} = {}
+
 interface game_state {  
     counter : number,
     bullets : number,
@@ -121,10 +126,19 @@ var game_state : game_state =  {
     upgrades : ["base"],
     spawners : ["energy_ball_thrower"],
     player_speed : 500,
+    /*
+    prod values
+
     upgrade_times : [5, 25, 35, 55],
     pick_side_index : 0,
     pick_side_times : [20, 30, 40, 50, 60, 70],
     boss_name : "Blue Wave"
+    */
+    upgrade_times : [5, 25, 35, 55],
+    pick_side_index : 0,
+    pick_side_times : [1, 10],
+    boss_name : "Sunshine"
+
 }
 
 
@@ -159,10 +173,8 @@ while(True):
 
     */
 
-	var enemy_images : string[] = ['black_hole_layer', 'Blue Wave', 'boss_weak_spot', 'enemy1', 'enemy2', 'enemy3', 'enemy4', 'energy_ball_thrower', 'laser', 'spawner1', 'strafe']
-	var images : string[] = ['background', 'background2', 'black_hole', 'blank', 'bullet1', 'energy_ball', 'laser_bullet', 'laser_charged', 'pbullet1', 'pburst_bullet', 'player', 'playerup', 'player_indicator', 'player_upgraded', 'strafe_bullet', 'turret', 'upgrade', 'wide_bullet']
-
-
+	var enemy_images : string[] = ['black_hole_layer', 'Blue Wave', 'boss_weak_spot', 'enemy1', 'enemy2', 'enemy3', 'enemy4', 'energy_ball_thrower', 'laser', 'spawner1', 'strafe', 'Sunshine']
+	var images : string[] = ['background', 'background2', 'black_hole', 'blank', 'bullet1', 'energy_ball', 'laser_bullet', 'laser_charged', 'pbullet1', 'pburst_bullet', 'player', 'playerup', 'player_indicator', 'player_upgraded', 'strafe_bullet', 'sunshine_bullet', 'sunshine_bullet_small', 'sunshine_safe_spot', 'sunshine_warning', 'turret', 'upgrade', 'wide_bullet']
 
     
     for(var item of images){
@@ -223,6 +235,22 @@ function create(this:any)
         args : ["tut1", 200, 200,"Collect this for upgrade points!",3000]
     });
 
+    /*
+
+    scene.time.addEvent({
+        callback:shoot_bullet,
+        delay : 5000,
+        args : [undefined, "localized explosion", {
+            number_of_rings : 5,
+            bullets_per_ring : 16,
+            delay : 400,
+            speed : 300,
+            expire_time : 180,
+            image:"sunshine_bullet"
+        }, 500, 500]
+    });
+
+*/
     scene.time.addEvent({
         callback:set_text,
         delay : 10000,
@@ -235,6 +263,7 @@ function create(this:any)
     bosses = this.physics.add.group();
     // add player
     player = this.physics.add.image(500,500,"player");
+    player.setDepth(999);
     // add collision
 
     this.physics.add.overlap(player, items, collectItem, null, this);
@@ -480,7 +509,7 @@ function out_of_bounds(s:any){
         type_assert(params, {
             fire : "number", speed:"number",number_of_bullets : "number"});
 
-        var new_enemy = enemies.create(x, y, "strafe");
+        var new_enemy = enemies.create(x, y, "energy_ball_thrower");
         new_enemy.setVelocityX(params.speed);
         // shoot energy balls
         timers.push(scene.time.addEvent({
@@ -634,7 +663,7 @@ function remove_black_hole(key){
 // Functions involving bullets (both player and enemy, except enemy-hit-by-bullet)
  ---------------------------------------------------------*/
 
-function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string, params:{[key:string] : any},start_x ?: number, start_y ?: number){
+function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string, params:{[key:string] : any},start_x ?: number, start_y ?: number, destroy_in? : number){
     if(start_x === undefined){
         start_x = enemy.x;
     }
@@ -643,32 +672,53 @@ function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string,
     }
     var timers : typeof Phaser.Time.TimerEvent[] = [];
     if(type === "bullet1"){
-        // param : speed
+        // param : speed (optional image)
         type_assert(params, {"speed" : "number"});
 
-        var bullet = bullets.create(start_x, start_y, "bullet1");
+        var bullet = bullets.create(start_x, start_y, params.image === undefined ? "bullet1" : params.image);
         scene.physics.moveToObject(bullet, player, params.speed);
     }
     else if(type === "fixed bullet"){
-        // param : speed, x, y
+        // param : speed, x, y (optional image)
         type_assert(params, {"speed" : "number","x" : "number","y" : "number"});
 
-        var bullet = bullets.create(start_x, start_y, "bullet1");
+        var bullet = bullets.create(start_x, start_y, params.image === undefined ? "bullet1" : params.image);
         scene.physics.moveTo(bullet, params.x, params.y, params.speed);
     }
 
     else if(type === "offset bullet"){
-        //params = {x, y, speed} : the location (relative to player) to aim at.
+        //params = {x, y, speed} : the location (relative to player) to aim at. (optional image)
         type_assert(params, {"speed" : "number","x" : "number","y" : "number"});
 
-        var bullet = bullets.create(start_x, start_y, "bullet1");
+        var bullet = bullets.create(start_x, start_y, params.image === undefined ? "bullet1" : params.image);
         scene.physics.moveTo(bullet, player.x+params.x, player.y + params.y, params.speed);
     }
+    else if(type === "localized explosion"){
+        // params : number of rings, bullets per ring, delay between rings,speed (optional image, expire time), 
+        type_assert(params, {"number_of_rings" : "number", "bullets_per_ring" : "number", "delay" : "number", "speed":"number"})
+        var bullet = bullets.create(start_x, start_y, "blank");
+        var image = params.image === undefined ? "bullet1" : params.image;
+        for(var i=0; i < params.number_of_rings; i++){
+            var delay = params.delay * i;
+            var angle = 0;
+            for(var j=0; j < params.bullets_per_ring; j++){
+                // fire the bullet
+                timers.push(scene.time.addEvent({
+                    callback: function(enemy, angle, start_x, start_y, params, image){
+                        shoot_bullet(enemy,"fixed bullet",{"speed":params.speed, x:start_x + Math.cos(angle), y: start_y + Math.sin(angle), "image":image}, start_x, start_y, params.expire_time)
+                    },
+                    delay : delay,
+                    args : [enemy, angle, start_x, start_y, params, image]
+                }))
+                angle += Math.PI * 2 / params.bullets_per_ring
+            }
+        }
+    }
     else if(type === "follow bullet"){
-        //params : speed (number),  follow_times (list of numbers)
+        //params : speed (number),  follow_times (list of numbers) (optional image)
         type_assert(params, {"speed" : "number", "follow_times" : "object"});
 
-        var bullet = bullets.create(start_x,start_y, "bullet1");
+        var bullet = bullets.create(start_x,start_y, params.image === undefined ? "bullet1" : params.image);
         scene.physics.moveToObject(bullet, player, params.speed);
         for(var i of params.follow_times){
             timers.push(scene.time.addEvent({delay :i, callback: (x, s) => scene.physics.moveToObject(x, player, s), args : [bullet, params.speed]}) );
@@ -719,6 +769,13 @@ function shoot_bullet(enemy : typeof Phaser.GameObjects.GameObject, type:string,
         }
         scene.physics.moveTo(bullet, params.end_x, params.end_y, params.speed);
 
+    }
+    if(destroy_in !== undefined){
+        timers.push(scene.time.addEvent({
+            callback:(e) => destroy_bullet(e),
+            delay:destroy_in,
+            args:[bullet]
+        }))
     }
     bullet.setData("timers", timers);
     bullet.setData("type", type);
@@ -975,35 +1032,207 @@ function prepare_spawn_boss(name : string){
     }
     set_text("boss_text", 300, 200, "Boss approaching : " + name, 5000);
     set_text("boss_text_2", 300, 300, "Weak spot", 5000);
-    var im = scene.physics.add.image(200, 300, "boss_weak_spot");
-    scene.time.addEvent({callback:function(e){e.destroy()}, delay : 5000, args:[im]});
-    
+    set_image("boss_weak_spot", 200, 300, "boss_weak_spot", 5000)
+    if(name === "Sunshine"){
+        set_text("boss_text_3", 300, 500, "Safe spot", 5000);
+        set_image("boss_safe_spot", 200, 500, "sunshine_safe_spot", 5000)
+    }
 }
 
 function spawn_boss(name : string){
     var images:typeof Phaser.Game.image[] = [];
     var timers:typeof Phaser.Time.TimerEvent[]= [];
     GameComponent.set_size(GameComponent.bossRef.current, 1);
+    // common to all bosses
+
+    var boss = bosses.create(game_width/2, -100, name);
+    boss.setVelocityY(80);
+    boss.setData("weak spot spawned", false);
+    // set health and max_health
+    // define a function on_spawn, called when the boss arrives, and 
+    var on_spawn : (e : typeof Phaser.Game.GameObject) => void = (e) => {};
+
     if(name === "Blue Wave"){
         game_state.boss_health = 10;
         game_state.boss_max_health=10;
-        var boss = bosses.create(game_width/2, -100, name);
-        boss.setVelocityY(80);
-        boss.setData("weak spot spawned", false);
-        // stop moving
-        timers.push(
-            scene.time.addEvent({
-                delay : 3000, 
-                callback: function(e){e.setVelocityX(0); e.setVelocityY(0)}, 
-                args : [boss]
-            })
-        )
-        //main boss timer
+
+        var on_spawn = function(boss){
+            var timers = boss.getData("timers")
+            /* copy and paste the below code
+
+            timers.push(scene.time.addEvent({
+                callback : function(boss){
+
+                },
+                delay : ? ,
+                args : [boss],
+                loop : true
+            }))
+
+            */
+
+            // 3 cannon attack
+            
+            // 3 seconds of intense firing every 6 seconds
+            for(var i=0; i < 30; i++){
+                timers.push(scene.time.addEvent({
+                    callback : function(boss){
+                        var x_vals = [352,416,487]
+                        var y_vals = [161,157,162]
+                        for(var i=0; i < 3; i++) {
+                            shoot_bullet(boss, "fixed bullet", {x : boss.x - 400 + x_vals[i] , y : 999, speed  : 400 + Math.random() * 100}, boss.x - 400 + x_vals[i], boss.y - 100 + y_vals[i] )
+                        }
+                    },
+                    delay : 6000,
+                    startAt : 150 *i,
+                    args : [boss],
+                    loop : true
+                }))
+            }
+            // spawn enemies
+            
+            timers.push(scene.time.addEvent({
+                callback : function(boss){
+                    var x_vals = [131,419,696]
+                    var y_vals = [78,71,78]
+                    var choice = Math.floor(Math.random() * 3)
+                    var xc = x_vals[choice];
+                    var yc = y_vals[choice];
+                    spawn_enemy("multi", {hp:1, fire:800}, xc, yc);
+                },
+                delay : 3750 ,
+                args : [boss],
+                loop : true
+            }))
+
+            // spawn bullets that shoot other bullets
+            timers.push(scene.time.addEvent({
+                callback : function(boss){
+                    shoot_bullet(boss, "energy ball", {
+                        speed : 400,
+                        explode_delay : 800,
+                        explode_number : 7}, 191, 121)
+
+                    shoot_bullet(boss, "energy ball", {
+                            speed : 400,
+                            explode_delay : 800,
+                            explode_number : 7}, 628, 121)             
+                },
+                delay : 2541 ,
+                args : [boss],
+                loop : true
+            }))
+        }
+    }
+
+    if(name === "Sunshine"){
+        game_state.boss_health = 15;
+        game_state.boss_max_health=15;
+        on_spawn = function(boss){
+            var timers = boss.getData("timers")
+
+            /* copy and paste the below code
+
+            timers.push(scene.time.addEvent({
+                callback : function(boss){
+
+                },
+                delay : ? ,
+                args : [boss],
+                loop : true
+            }))
+
+            */
+            // main cannons
+            var x = [153,261,546,636]
+            var y = [79, 84,76,79];
+            for(var i=0; i < 4; i++){
+                timers.push(scene.time.addEvent({
+                    callback : function(boss,x,y){
+                        shoot_bullet(boss, "bullet1", {speed:500, image:"sunshine_bullet_small"},x,y);
+                    },
+                    delay : 1200 ,
+                    startAt : 300*i,
+                    args : [boss, x[i], y[i]],
+                    loop : true
+                }))
+            }
+
+            //sunshine bombs warning
+            for(var i=0; i < 4; i++){
+                timers.push(scene.time.addEvent({
+                    callback : function(boss, i){
+                        var x=  Math.random() *(game_width - 200) + 100
+                        var y = Math.random() * (game_height - 300) + 300
+                        boss.setData("bomb" + i, [x,y])
+                        set_image("warning"+i , x,y,"sunshine_warning",3000)
+                    },
+                    delay : 7000 ,
+                    startAt : 2500,
+                    args : [boss, i],
+                    loop : true
+                }))
+            }
+            //sunshine bombs
+            for(var i=0; i < 4; i++){
+                timers.push(scene.time.addEvent({
+                    callback : function(boss, i){
+                        var [x, y] = boss.getData("bomb" + i)
+                        shoot_bullet(boss, "localized explosion", {
+                            number_of_rings : 5,
+                            bullets_per_ring : 16,
+                            delay : 400,
+                            speed : 300,
+                            expire_time : 180,
+                            image:"sunshine_bullet"
+                        }, x, y);
+                    },
+                    delay : 7000 ,
+                    args : [boss, i],
+                    loop : true
+                }))
+            }
+            //sunshine safe spot
+            timers.push(scene.time.addEvent({
+                callback : function(boss){
+                    var x=  Math.random() *game_width
+                    boss.setData("safe spot", x)
+                    var im = set_image("sunshine_safe_spot" , x,game_height /2,"sunshine_safe_spot",3000);
+                    sc_images["sunshine_safe_spot"].setScale(4,game_height / 50);
+                },
+                delay : 10000 ,
+                startAt : 3000,
+                args : [boss],
+                loop : true
+            }))
+            // lasers
+            for(var i=0; i < 100; i++){
+                var x_val = Math.random()*game_width;
+                timers.push(scene.time.addEvent({
+                    callback : function(boss, x_val){
+                        var x= boss.getData("safe spot");
+                        if(Math.abs(x_val - x) > 100){
+                            shoot_bullet(boss, "laser", {}, x_val, 46)
+                        }
+                    },
+                    delay : 10000 ,
+                    startAt : 10*i,
+                    args : [boss,x_val],
+                    loop : true
+                }))
+
+            }
+        }
+    }
+    // stop moving
+    timers.push(
         scene.time.addEvent({
-            callback : function(boss){
-                var timers = boss.getData("timers")
-                // spawn weak spots
-                timers.push(
+            delay : 3000, 
+            callback: function(e, on_spawn){
+                e.setVelocityX(0);
+                e.setVelocityY(0);
+
+                boss.getData("timers").push(
                     scene.time.addEvent({
                         delay : 1000, 
                         callback: function(e){
@@ -1017,78 +1246,12 @@ function spawn_boss(name : string){
                         loop:true,
                     })
                 )
-                // attacks go here
+                on_spawn(boss);
 
-                /* copy and paste the below code
-
-                timers.push(scene.time.addEvent({
-                    callback : function(boss){
-
-                    },
-                    delay : ? ,
-                    args : [boss],
-                    loop : true
-                }))
-
-                */
-
-               // 3 cannon attack
-               
-                // 3 seconds of intense firing every 6 seconds
-                for(var i=0; i < 30; i++){
-                    timers.push(scene.time.addEvent({
-                        callback : function(boss){
-                            var x_vals = [352,416,487]
-                            var y_vals = [161,157,162]
-                            for(var i=0; i < 3; i++) {
-                                shoot_bullet(boss, "fixed bullet", {x : boss.x - 400 + x_vals[i] , y : 999, speed  : 400 + Math.random() * 100}, boss.x - 400 + x_vals[i], boss.y - 100 + y_vals[i] )
-                            }
-                        },
-                        delay : 6000,
-                        startAt : 150 *i,
-                        args : [boss],
-                        loop : true
-                    }))
-                }
-                // spawn enemies
-                
-                timers.push(scene.time.addEvent({
-                    callback : function(boss){
-                        var x_vals = [131,419,696]
-                        var y_vals = [78,71,78]
-                        var choice = Math.floor(Math.random() * 3)
-                        var xc = x_vals[choice];
-                        var yc = y_vals[choice];
-                        spawn_enemy("multi", {hp:1, fire:800}, xc, yc);
-                    },
-                    delay : 3750 ,
-                    args : [boss],
-                    loop : true
-                }))
-
-                // spawn bullets that shoot other bullets
-                timers.push(scene.time.addEvent({
-                    callback : function(boss){
-                        shoot_bullet(boss, "energy ball", {
-                            speed : 400,
-                            explode_delay : 800,
-                            explode_number : 7}, 191, 121)
-
-                        shoot_bullet(boss, "energy ball", {
-                                speed : 400,
-                                explode_delay : 800,
-                                explode_number : 7}, 628, 121)             
-                    },
-                    delay : 2541 ,
-                    args : [boss],
-                    loop : true
-                }))
-
-            },
-            delay : 3000
-            , args : [boss]
+                }, 
+            args : [boss, on_spawn]
         })
-    }
+    )
 
     boss.setData("type", name);
     boss.setData("images", images); // image, x ,y
@@ -1166,7 +1329,26 @@ function remove_text(key:string){
 
 }
 
+function set_image(key:string, x:number, y:number, image:string, time?:number){
+    if(sc_images[key] !== undefined){
+        remove_image(key);
+    }
+    sc_images[key] = scene.add.image(x, y, image);
+    if(time !== undefined){
+        sc_images_timers[key] = scene.time.addEvent({callback:remove_image, args:[key], delay : time});
+    }
+}
+function remove_image(key:string){
+    if(sc_images[key] !== undefined){
+        sc_images[key].destroy();
+        delete sc_images[key];
+    }
+    if(sc_images_timers[key] !== undefined){
+        sc_images_timers[key].remove();
+        delete sc_images_timers[key];
+    }
 
+}
 
 
 /* --------------------------------------------------------
@@ -1187,12 +1369,13 @@ function slow_update(){ // called every second
         }
         //destroy old black hole layers
         if(en.getData("type") === "bh layer"){
-            if(en.y > 790){
+           // console.log(en.x);
+            if(en.x > game_width  - 50){
                 destroy_enemy(en);
             }
         }
         if(en.getData("type") === "strafe"){
-            if(en.x > 750){
+            if(en.x > game_width - 50){
                 en.setVelocityX(-en.getData("speed"));
             } else if(en.x < 50){
                 en.setVelocityX(en.getData("speed"));

@@ -58,7 +58,7 @@ var spawners:spawners= {
         x : () => -10,
         y : () => Math.random() * 100 + 100,
         loop:true
-    },"bh layer",0,1.5, [] ,'Puts down black holes to suck you in','black_hole_layer' ], 
+    },"bh layer",0,0, [] ,'Puts down black holes to suck you in','black_hole_layer' ], 
 
     "black hole layer 2" : [{
         delay : 2000,
@@ -98,7 +98,7 @@ var spawners:spawners= {
         y : () => 0,
         loop:true
     },
-    "follow", 0,1.6,[], "Shoots bullets that follow you", "enemy3"],
+    "follow", 0,1,[], "Shoots bullets that follow you", "enemy3"],
 
 
     "spewer" : [{
@@ -108,7 +108,7 @@ var spawners:spawners= {
         x : () => Math.random() * game_width,
         y : () => 0,
         loop:true
-    },"spewer",0, 2,[],"Shoots 10 bullets at once, but slow fire rate"], 
+    },"spewer",0, 1.8,[],"Shoots 10 bullets at once, but slow fire rate"], 
 
     "spewer 2" : [{
         delay : 800,
@@ -117,7 +117,7 @@ var spawners:spawners= {
         x : () => Math.random() * game_width,
         y : () => 0,
         loop:true
-    },"spewer",1, 1.6,["spewer"],"Spewer rate of fire increased"], 
+    },"spewer",1, 1,["spewer"],"Spewer rate of fire increased"], 
 
 
     "spawner":[
@@ -137,7 +137,7 @@ var spawners:spawners= {
                 x : () => Math.random() * game_width,
                 y : () => 0,
                 loop:true
-        },"spawner1", 0, 1.7, [], "Spawns enemies", "spawner1"
+        },"spawner1", 0, 2.3, [], "Spawns enemies", "spawner1"
     ],
 
     "spawner 2":[
@@ -157,7 +157,7 @@ var spawners:spawners= {
                 x : () => Math.random() * game_width,
                 y : () => 0,
                 loop:true
-        },"spawner1", 1, 1.7, ["spawner"], "Spawner now spawns multishot enemies", "spawner1"
+        },"spawner1", 1, 0.8, ["spawner"], "Spawner now spawns multishot enemies", "spawner1"
     ],
 
 
@@ -177,7 +177,7 @@ var spawners:spawners= {
         x : () => Math.random() * game_width,
         y : () => -10,
         loop:true
-    },"laser",1,2, ["laser"], "Spawns faster and charge time decreased", "laser"], 
+    },"laser",1,0.4, ["laser"], "Spawns faster and charge time decreased", "laser"], 
 
     "strafe" :  [{
         delay : 2500,
@@ -204,16 +204,16 @@ var spawners:spawners= {
         x : () => -50,
         y : () => Math.random() * 100+100,
         loop:true
-    },"energy_ball_thrower",0, 1, [], "Throws energy balls that explode", "energy_ball_thrower.png"], 
+    },"energy_ball_thrower",0, 1.3, [], "Throws energy balls that explode", "energy_ball_thrower"], 
 
     "energy_ball_thrower 2" :  [{
-        delay : 2500,
+        delay : 1500,
         type : "energy_ball_thrower",
-        params : {"fire":1000,hp:2,speed:200},
+        params : {"fire":800,hp:2,speed:200,number_of_bullets:10},
         x : () => -50,
         y : () => Math.random() * 100+100,
         loop:true
-    },"energy_ball_thrower",1, 1, [], "Throws energy balls that explode", "energy_ball_thrower.png"], 
+    },"energy_ball_thrower",1, 0.7, [], "Energy balls come faster and explode into more bullets.", "energy_ball_thrower"], 
 
 }
 export default spawners
