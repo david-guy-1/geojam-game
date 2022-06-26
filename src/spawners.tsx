@@ -73,7 +73,7 @@ var spawners:spawners= {
     "multi" : [{
         delay : 3400,
         type : "multi",
-        params : {"fire":1500,hp:1},
+        params : {"fire":1500,hp:2},
         x : () => Math.random() * game_width,
         y : () => 0,
         loop:true
@@ -83,7 +83,7 @@ var spawners:spawners= {
     "multi 2" : [{
         delay : 2400,
         type : "multi",
-        params : {"fire":1500,hp:1},
+        params : {"fire":1500,hp:2},
         x : () => Math.random() * game_width,
         y : () => 0,
         loop:true
@@ -104,7 +104,7 @@ var spawners:spawners= {
     "spewer" : [{
         delay : 1300,
         type : "spewer",
-        params : {"fire":4300,"spread_amount":10, spread_angle : 0.1,hp:1},
+        params : {"fire":4300,"spread_amount":10, spread_angle : 0.1,hp:2},
         x : () => Math.random() * game_width,
         y : () => 0,
         loop:true
@@ -113,7 +113,7 @@ var spawners:spawners= {
     "spewer 2" : [{
         delay : 1300,
         type : "spewer",
-        params : {"fire":2300,"spread_amount":10, spread_angle : 0.1,hp:1},
+        params : {"fire":2300,"spread_amount":10, spread_angle : 0.1,hp:2},
         x : () => Math.random() * game_width,
         y : () => 0,
         loop:true
