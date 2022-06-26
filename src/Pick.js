@@ -33,13 +33,13 @@ class Pick extends React.Component{
             <h1> Pick a side</h1>
             <div style={{width:600, height:300, border:"1px solid black"}}><br />
                 <button onClick={function(){this.click(0)}.bind(this)}>Pick (Q)</button>
-                <img src={"images/enemies/" + data[0][4]+".png" }/>  <br />
-                {data[0][3]}
+                <img src={"images/enemies/" + data[0][6]+".png" }/>  <br />
+                {data[0][5]}
             </div><br />
             <div style={{width:600, height:300, border:"1px solid black"}}>
             <button onClick={function(){this.click(1)}.bind(this)}>Pick (E)</button> 
-            <img src={"images/enemies/" + data[1][4]+".png" }/><br />
-                {data[1][3]}
+            <img src={"images/enemies/" + data[1][6]+".png" }/><br />
+                {data[1][5]}
             </div>
 
         </div>

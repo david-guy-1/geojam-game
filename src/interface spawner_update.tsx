@@ -9,6 +9,8 @@ loop : if we should spawn multiple times or just once.
 
 string : key in spawners list
 number : priority (if two spawners with the same key exist, the one with lower priority, or older one if same priorty, is removed. )
+number : difficulty 
+string[] : prerequisites 
 string : description
 second string : image name to display, matches enemies.create in spawner
 */
@@ -21,6 +23,6 @@ interface spawner_update [{
         y: (a:any) => number,
         repeat? : number,
         loop : boolean
-    }, string, number, string? , string? ]
+    }, string, number,number, string[], string? , string? ]
 
 export default spawner_update;
