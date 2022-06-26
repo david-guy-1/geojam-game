@@ -1,12 +1,13 @@
 import React from 'react';
 import spritesheets from './spritesheets.tsx';
-import purchasable_upgrades from "./purchaseable_upgrades.tsx";
 import spawner_update from './interface spawner_update.tsx';
 import spawners from "./spawners.tsx";
 import Upgrade from './Upgrade';
 import Pick from './Pick';
 import anime from "animejs/lib/anime.es.js"
 import type_assert from './type_assert';
+import {game_width , game_height,game_box_top,  game_box_left, fps} from "./constants"
+import upgrades from "./upgrades_list"
 const itemPool = require("./itemPool.json");
 const _ = require("lodash");
 const Phaser = require("phaser");
@@ -57,11 +58,7 @@ var dont_render_both = false;
 // game constants 
 
 
-const game_width = 800;
-const game_height = 600;
-const game_box_top = 100;
-const game_box_left = 50;
-const fps = 60; 
+
 
 
 
@@ -110,6 +107,8 @@ interface game_state {
     
     player_speed : number,
     upgrade_times : number[],
+
+    pick_side_prioritize_new : boolean[]
     pick_side_index : number,
     pick_side_times : number [],
 
@@ -121,10 +120,10 @@ interface game_state {
 }
 
 var game_state : game_state =  {
-    counter : 0,
+    counter : 3,
     bullets : 0,
-    upgrades : ["base"],
-    spawners : ["energy_ball_thrower"],
+    upgrades : ["laser"],
+    spawners : ["multi"],
     player_speed : 500,
     /*
     prod values
@@ -132,12 +131,15 @@ var game_state : game_state =  {
     upgrade_times : [5, 25, 35, 55],
     pick_side_index : 0,
     pick_side_times : [20, 30, 40, 50, 60, 70],
+    pick_side_prioritize_new : [true, true, false , false, false],
     boss_name : "Blue Wave"
     */
+
     upgrade_times : [5, 25, 35, 55],
     pick_side_index : 0,
-    pick_side_times : [1, 10],
-    boss_name : "Sunshine"
+    pick_side_times : [2, 3, 4, 20, 30, 40, 50, 60, 70],
+    pick_side_prioritize_new : [true, true, false , false, false],
+    boss_name : "Blue Wave"
 
 }
 
@@ -174,7 +176,8 @@ while(True):
     */
 
 	var enemy_images : string[] = ['black_hole_layer', 'Blue Wave', 'boss_weak_spot', 'enemy1', 'enemy2', 'enemy3', 'enemy4', 'energy_ball_thrower', 'laser', 'spawner1', 'strafe', 'Sunshine']
-	var images : string[] = ['background', 'background2', 'black_hole', 'blank', 'bullet1', 'energy_ball', 'laser_bullet', 'laser_charged', 'pbullet1', 'pburst_bullet', 'player', 'playerup', 'player_indicator', 'player_upgraded', 'strafe_bullet', 'sunshine_bullet', 'sunshine_bullet_small', 'sunshine_safe_spot', 'sunshine_warning', 'turret', 'upgrade', 'wide_bullet']
+	var images : string[] = ['background', 'background2', 'black_hole', 'blank', 'bullet1', 'energy_ball', 'laser_bullet', 'laser_charged', 'pbullet1', 'pburst_bullet', 'player', 'playerup', 'player_indicator', 'player_laser_bullet', 'player_upgraded', 'strafe_bullet', 'sunshine_bullet', 'sunshine_bullet_small', 'sunshine_safe_spot', 'sunshine_warning', 'turret', 'upgrade', 'wide_bullet']
+
 
     
     for(var item of images){
@@ -207,19 +210,7 @@ function create(this:any)
     items.create(700, 300, "red gem");
 */
 
-/* 
-    // prod values are : 
 
-    update_player_bullets_based_on_state();
-    set_pick_side_from_state();
-    set_upgrades_from_state();
-    update_spawners_based_on_state();
-*/
-
-    update_player_bullets_based_on_state();
-    set_pick_side_from_state();
-    set_upgrades_from_state();
-    update_spawners_based_on_state();
     
     // tutorial text
     scene.time.addEvent({
@@ -272,7 +263,15 @@ function create(this:any)
     player_bullets = this.physics.add.group();
     this.physics.add.overlap(player, bullets, hit_by_bullet, null, this);
     this.physics.add.overlap(enemies, player_bullets, enemy_hit_by_bullet, function(enemy: typeof Phaser.GameObjects.GameObject, bullet: typeof Phaser.GameObjects.GameObject){
-        return bullet.getData("type").indexOf(["pburst_bullet", "pturret"]) === -1;
+        // should collide
+        var bullet_type = bullet.getData("type") 
+        var enemy_type = enemy.getData("type");
+        if( bullet_type === "pbullet"){
+            return true;
+        }
+        if(bullet_type === "laser"){
+            return bullet.getData("tagged").indexOf(enemy) === -1 ;
+        }
     }, this);
     // add animations
     for(var item of Object.keys(spritesheets)){
@@ -281,6 +280,21 @@ function create(this:any)
         })
     }
     // 
+
+    /* 
+    // prod values are : 
+
+    update_player_bullets_based_on_state();
+    set_pick_side_from_state();
+    set_upgrades_from_state();
+    update_spawners_based_on_state();
+    */
+
+    update_player_bullets_based_on_state();
+    set_pick_side_from_state();
+    set_upgrades_from_state();
+    update_spawners_based_on_state();
+
     
 }
 
@@ -608,6 +622,10 @@ function enemy_hit_by_bullet(enemy : typeof Phaser.Game.GameObject, bullet : typ
     if(bullet_type === "pbullet1"){
         destroy_bullet(bullet);
     }
+    // for lasers, add to list
+    if(bullet_type === "laser"){
+        bullet.getData("tagged").push(enemy);
+    }
 }
 
 function enemy_add_image(key : string, image : string, enemy : typeof Phaser.GameObjects.GameObject, x=0, y=0){
@@ -786,7 +804,7 @@ function player_shoot_bullet_up(type:string, params :{[key:string]:any}= {}, rot
     player_shoot_bullet(type,params, -Math.sin(rotation), -Math.cos(rotation) );
 }
 
-function player_shoot_bullet(type : string,params:{[key:string]:any}, x: number, y : number, start_x : number=player.x, start_y : number=player.y){ // x and y are direction, start_x and start_y are location of bulllet
+function player_shoot_bullet(type : string,params:{[key:string]:any}, x: number, y : number, start_x : number=player.x, start_y : number=player.y, image?: string){ // x and y are direction, start_x and start_y are location of bulllet
     var angle : number = 0;
     var timers :typeof Phaser.Time.TimerEvent[] = [];
     if(x !== 0 || y !== 0){
@@ -794,57 +812,75 @@ function player_shoot_bullet(type : string,params:{[key:string]:any}, x: number,
     }
     
     if(type === "pbullet1"){
-        // no params
-        var bullet = player_bullets.create(start_x, start_y, "pbullet1");
-        var bullet_speed = 1200;    
+        // bullet speed
+        type_assert(params , {speed : "number"})
+        var bullet = player_bullets.create(start_x, start_y, image !== undefined ? image : "pbullet1");
+        var bullet_speed = params.speed;    
         bullet.setVelocityX(bullet_speed * Math.cos(angle));
         bullet.setVelocityY(bullet_speed * Math.sin(angle));
     }
     if(type === "pburst_bullet"){
         // number : number of bullets to explode into
-        type_assert(params, {"number" : "number"});
+        // time : when to explode 
+        // optional child_image for child
+        type_assert(params, {"number" : "number", "time" : "number"});
         
-        var bullet = player_bullets.create(start_x, start_y, "pburst_bullet");
+        var bullet = player_bullets.create(start_x, start_y, image !== undefined ? image :  "pburst_bullet");
         var bullet_speed = 300;
         bullet.setVelocityX(bullet_speed * Math.cos(angle));
         bullet.setVelocityY(bullet_speed * Math.sin(angle));
         //console.log(bullet);        
         timers.push(scene.time.addEvent({
-            callback:function(bullet:typeof  Phaser.GameObjects.GameObject, number : number){
+            callback:function(bullet:typeof  Phaser.GameObjects.GameObject, number : number, image ?: string){
                 var angle = 0;
                 for(var i=0; i < number; i++){
                     
-                    player_shoot_bullet("pbullet1",{}, Math.cos(angle), Math.sin(angle), bullet.x, bullet.y);
+                    player_shoot_bullet("pbullet1",{}, Math.cos(angle), Math.sin(angle), bullet.x, bullet.y,image);
                     angle += Math.PI*2/number;
                 }
                 
                 destroy_bullet(bullet);
             },
-            args:[bullet, params.number],
-            delay : 1000
+            args:[bullet, params.number, params.child_image],
+            delay : params.time
         }))
     }
     if(type === "pturret"){
-        // no params
-        var bullet = player_bullets.create(start_x, start_y, "turret");
+        // delay (how long to wait) , bullets (number of bullets), angle (how much to rotate)
+        // optional child_image for child
+        type_assert(params, {"delay":"number", "bullets" : "number", "angle":"number" , "time" : "number"});
+
+        var bullet = player_bullets.create(start_x, start_y,image !== undefined ? image :  "turret" );
         bullet.setVelocityX(0);
         bullet.setVelocityY(0);
         var times:number= 0;
-        for(var i = 3000; i < 6000; i+=100){
-            
+        for(var i = 0; i < params.bullets; i++){
+            var delay = params.delay + 100*i;
             timers.push(scene.time.addEvent({
                 callback:player_shoot_bullet,
-                args : ["pbullet1", {},Math.cos(times), -Math.sin(times), bullet.x, bullet.y],
-                delay : i
+                args : ["pbullet1", {},Math.cos(times), -Math.sin(times), bullet.x, bullet.y, params.child_image],
+                delay : delay
             }));
-            times += 0.52;
+            times += params.angle;
         }
         timers.push(scene.time.addEvent({
             callback:destroy_bullet,
             args:[bullet],
-            delay:6100,
+            delay:params.delay + 100*params.bullets + 100,
         }))
     }
+    if(type === "laser"){
+        // only param is duration
+        type_assert(params, {"duration" : "number"});
+        var bullet = player_bullets.create(start_x, start_y, image !== undefined ? image : "player_laser_bullet");
+        bullet.setData("tagged", []);
+        timers.push(scene.time.addEvent({
+            callback:destroy_bullet,
+            args : [bullet],
+            delay : params.duration
+        }))
+    }
+
     bullet.setData("timers", timers);
     bullet.setData("type", type);
 }
@@ -893,26 +929,40 @@ function update_player_bullets_helper(name : string, type : string, params:{[key
 }
 
 function update_player_bullets(new_stuff:any){
+    /*
+        keys are strings, objects are object that scene.time.addEvent accepts
+    */
     for(var thing of Object.keys(new_stuff)){
         // cancel the old intervals
         if(player_bullets_intervals[thing] !== undefined){
-            player_bullets_intervals[thing].remove();
+            remove_player_bullet(thing);
         }
         player_bullets_intervals[thing] = scene.time.addEvent(new_stuff[thing]);
     }
 }
 
 function update_player_bullets_based_on_state(){
-    // todo: in the future, we want to compute it here , (and wipe out all of the old timers, if needed), and replace them with new ones.
-
 
     // priority should be based on being recent, not strength 
 
-    for(var item of game_state.upgrades){
-        for(var upgrade of purchasable_upgrades[item]){
-            update_player_bullets_helper(...upgrade);
-        }
+    update_player_bullets({"laser":{
+        callback : (player) => player_shoot_bullet("pbullet1", {speed : 1000}, 0, -1, player.x, player.y , "player_laser_bullet"),
+        args : [player],
+        delay : 2000,
+        loop:true
     }
+})
+
+/*
+    update_player_bullets({"laser":{
+            callback : (player) => player_shoot_bullet("laser", {duration : 200}, 0, 0, player.x, player.y-350 , "player_laser_bullet"),
+            args : [player],
+            delay : 2000,
+            loop:true
+        }
+    })
+
+    */
 }
 
 function remove_player_bullet(name:string){
@@ -983,8 +1033,12 @@ function set_pick_side(time : number, choices : string[]){
 }
 
 // call this function from returning to base
+//this is called AFTER incrementing game state's index
+//but that call is for the NEXT pick
 function set_pick_side_from_state(){
     // find valid choices
+    var prioritize_new = game_state.pick_side_prioritize_new[game_state.pick_side_index];
+    console.log(prioritize_new);
     var valid_choices : string[] = Object.keys(spawners);
     valid_choices = valid_choices.filter((x) => game_state.spawners.indexOf(x) === -1);
     valid_choices = valid_choices.filter(function(x){
@@ -992,7 +1046,13 @@ function set_pick_side_from_state(){
     })
     
     // choose the two with the lowest difficulty
-    valid_choices = _.sortBy(valid_choices, (x) =>spawners[x][3]);
+    valid_choices = _.sortBy(valid_choices, function(name) {
+        if(prioritize_new && game_state.spawners.indexOf(spawners[name][1]) === -1){
+            return spawners[name][3] - 999
+        }
+        return spawners[name][3]
+    
+    });
 
     if(valid_choices.length >= 2){
         var time :number = 0
@@ -1729,10 +1789,11 @@ class Game extends React.Component{
             console.log(e);
         }
 	}
-    return_from_upgrades(e : Set<string> ){
+    return_from_upgrades(e : string[] ){
         for(var item of e){
-            if(game_state.upgrades.indexOf(item) === -1){
+            if(game_state.upgrades.indexOf(item) === -1 && game_state.counter > 0){
                 game_state.upgrades.push(item);
+                game_state.counter -= 1; 
             }
         }
         update_player_bullets_based_on_state();
@@ -1795,7 +1856,9 @@ class Game extends React.Component{
             
             {game_state.counter} items collected, {game_state.bullets} bullet hits
             <div style={{"position":"absolute", "top":100, "left":100}}ref={this.gameRef} id="game"></div>
-            <div style={{position:"absolute", top:60, left:100, "background-color":"red",height:20}} ref={this.bossRef}></div>
+
+            <div style={{position:"absolute", top:60, left:100, "background-color":"#ccffcc",height:20, width:game_width}} ref={this.progressRef}></div>
+            <div style={{position:"absolute", top:80, left:100, "background-color":"red",height:20}} ref={this.bossRef}></div>
             <div style={{position:"absolute", top:80, left:100, "background-color":"green",height:20}} ref={this.progressRef}></div>
                 
             <img src="images/player_indicator.png" ref={this.buttonRef[0]} id="abc" style={{ display:"none", position:"absolute", top:game_box_top, left:game_box_left}} />

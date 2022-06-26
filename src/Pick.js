@@ -1,9 +1,8 @@
 
 import spawners from './spawners.tsx';
 import React from 'react';
-const game_box_top = 100;
-const game_box_left = 50;
-
+import {game_width , game_height,game_box_top,  game_box_left, fps} from "./constants"
+import upgrades from "./upgrades_list"
 class Pick extends React.Component{
     constructor(props){
         super(props);
@@ -32,8 +31,9 @@ class Pick extends React.Component{
     render(){
         var choices  = this.props.game_state.next_pick_choices;
         var data = [spawners[choices[0]], spawners[choices[1]]]
+        var dist = this.props.game_state.pick_side_times.length - this.props.game_state.pick_side_index-2;
         return <div>
-            <h1> Pick a side</h1>
+            <h1> Pick a side ({dist} pick(s) to boss)</h1>
             <div style={{width:280, height:560, border:"1px solid black", position :"absolute", top:game_box_top, left:game_box_left,padding:10,backgroundColor : "#ccccff"}}><br />
                 <button onClick={function(){this.click(0)}.bind(this)}>Pick (Q)</button>
                 <img src={"images/enemies/" + data[0][6]+".png" }/>  <br />

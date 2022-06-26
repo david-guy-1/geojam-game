@@ -58,7 +58,7 @@ var spawners:spawners= {
         x : () => -10,
         y : () => Math.random() * 100 + 100,
         loop:true
-    },"bh layer",0,0, [] ,'Puts down black holes to suck you in','black_hole_layer' ], 
+    },"bh layer",0,1, [] ,'Puts down black holes to suck you in','black_hole_layer' ], 
 
     "black hole layer 2" : [{
         delay : 2000,
