@@ -6,7 +6,7 @@ import Upgrade from './Upgrade';
 import Pick from './Pick';
 import anime from "animejs/lib/anime.es.js"
 import type_assert from './type_assert';
-import {game_width , game_height,game_box_top,  game_box_left, fps, max_hp} from "./constants"
+import {game_width , game_height,game_box_top,  game_box_left, fps, max_hp, health_spawn, explosion_spawn} from "./constants"
 import upgrades from "./upgrades_list"
 import Phaser from 'phaser';
 const itemPool = require("./itemPool.json");
@@ -124,8 +124,12 @@ interface game_state {
     boss_spawning_in_so_far ?: number
 }
 
+
+// GAME STATE 
+
+
 var game_state : game_state =  {
-    counter : 999,
+    counter : 0,
     bullets : 0,
     health : max_hp,
     invtime : 1000,
@@ -143,15 +147,13 @@ var game_state : game_state =  {
     boss_name : "Blue Wave"
     */
 
-    upgrade_times : [5, 15,25,25, 35, 55],
+    upgrade_times : [5, 25, 35, 55],
     pick_side_index : 0,
-    pick_side_times : [20, 30, 40, 50, 60, 70],
+    pick_side_times : [20, 30,40, 50, 60, 70],
     pick_side_prioritize_new : [true, true, false , false, false],
     boss_name : "Blue Wave"
 
 }
-
-
 
 
 
@@ -312,13 +314,13 @@ function create(this:any)
     // powerup and explosion timers
     powerup_timer = scene.time.addEvent({
         callback : drop_upgrade,
-        delay : 53000,
+        delay : health_spawn,
         args:["health"],
         loop:true,
     })
     explosion_timer = scene.time.addEvent({
         callback : drop_upgrade,
-        delay : 23000,
+        delay : explosion_spawn,
         args:["explosion"],
         loop:true,
     })
@@ -391,9 +393,9 @@ function out_of_bounds(s:any){
     return s.x < 0 || s.y < 0 || s.x > game_width || s.y > game_height;
 }
 
-function reset(){
+function reset(){ // TODO: set to default
     game_state =  {
-        counter : 999,
+        counter : 0,
         bullets : 0,
         health : max_hp,
         invtime : 1000,
@@ -1177,7 +1179,7 @@ function update_player_bullets_based_on_state(){
 
     }
     // turret
-    if(ups.indexOf("main spread 2") !== -1 &&
+    if(ups.indexOf("bullet size") !== -1 &&
     ups.indexOf("main rate 2") !== -1 &&
     ups.indexOf("burst speed") !== -1 &&
     ups.indexOf("burst bullets") !== -1 &&
@@ -1214,7 +1216,7 @@ function update_player_bullets_based_on_state(){
     }
 
     if(
-        _.every(['bullet size', 'main rate 3', 'main spread 3', 'turret spawn', 'turret delay', 'turret bullets', 'burst speed 2', 'burst bullets 2'], (x) => ups.indexOf(x) !== -1)
+        _.every(['main spread 2', 'main rate 3', 'main spread 3', 'turret spawn', 'turret delay', 'turret bullets', 'burst speed 2', 'burst bullets 2'], (x) => ups.indexOf(x) !== -1)
     ){
         var laser_delay = 1500;
         var laser_duration = 400;
@@ -1801,13 +1803,13 @@ function boss_defeated(name : string ){
 
     powerup_timer = scene.time.addEvent({
         callback : drop_upgrade,
-        delay : 53000,
+        delay : health_spawn,
         args:["health"],
         loop:true
     })
     explosion_timer = scene.time.addEvent({
         callback : drop_upgrade,
-        delay : 23000,
+        delay : explosion_spawn,
         args:["explosion"],
         loop:true
     })
@@ -1818,19 +1820,20 @@ function boss_defeated(name : string ){
     if(game_state.boss_name === "Blue Wave"){
         game_state.upgrade_times = [18, 36, 57, 64, 82, 100, 121]
         game_state.pick_side_index = 0;
-        game_state.pick_side_times = [20, 40, 60, 85, 110, 130, 150]
-        game_state.pick_side_prioritize_new = [true, false, false, true, true, false];
+        game_state.pick_side_times = [10, 20, 30, 40, 60, 85, 110, 130, 150]
+        game_state.pick_side_prioritize_new = [false, false, false, true, true, false, false, false];
         game_state.boss_name = "Sunshine"
+        
     }
 
-    if(game_state.boss_name === "Sunshine"){
+    else if(game_state.boss_name === "Sunshine"){
         game_state.upgrade_times = [18, 36, 57, 64, 82, 100, 121]
         game_state.pick_side_index = 0;
         game_state.pick_side_times = [20, 40, 60, 85, 110, 130, 150]
         game_state.pick_side_prioritize_new = [true, false, false, true, true, false];
         game_state.boss_name = "Oblivion"
     }
-    if(game_state.boss_name === "Oblivion"){
+    else if(game_state.boss_name === "Oblivion"){
         GameComponent.setState({display : "win"});
     }
 
@@ -1841,6 +1844,7 @@ function boss_defeated(name : string ){
     game_state.boss_spawning_in = undefined;
     set_pick_side_from_state();
     update_spawners_based_on_state();
+    set_upgrades_from_state();
     // play an animation if possible
     bosses.children.entries.forEach(function(e){
         e.getData("images").forEach((x:any) => x["image"].destroy());
@@ -2291,6 +2295,8 @@ class Game extends React.Component{
             if(this.state.display === "game" && scene !== undefined && scene.scene.isPaused()){
                 this.unpause_animation();
             } 
+            // set health bar
+            this.set_size(this.healthRef.current, game_state.health/max_hp);
 
 
         } catch(e){
@@ -2321,6 +2327,8 @@ class Game extends React.Component{
         } else {
             set_pick_side_from_state();
         }
+        console.log(JSON.stringify(game_state))
+
         this.setState({"display" : "game"});
     }
     return_from_pick(e : string){

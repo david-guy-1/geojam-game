@@ -7,7 +7,9 @@ var upgrades = [
         ["player speed",[196,184,127,59],"Ship moves faster",[]],
 
 	// turret
-	["main spread 2",[385,41,306,105],"Fire 5 bullets at once",["main spread"]],
+	["bullet size",[385,41,306,105],"Bigger bullets",[]],
+	
+	
         ["main rate 2",[306,105,337,203],"Fire even more rapidly",["main rate"]],
         ["burst speed",[337,203,439,203],"Burst fire more often",["main spread", "main rate", "player speed"]],
         ["burst bullets",[439,203,464,105],"Burst fires more bullets",["main spread", "main rate", "player speed"]],
@@ -18,8 +20,7 @@ var upgrades = [
 	//["main spread 2","main rate 2","burst speed","burst bullets","invincibility"]
 
 	//["name", [], "desc", []]
-
-	["bullet size",[62,313,135,334],"Bigger bullets",[]],
+	["main spread 2",[62,313,135,334],"Fire 5 bullets at once",["main spread", "burst speed"]],
 	["main rate 3",[135,334,209,313],"Fires super fast",["main rate 2"]],
 	["main spread 3",[209,313,189,383],"Fires 7 bullets at once",["main spread 2"]],
 	["turret spawn",[189,383,209,456],"Drop turrets more often",["main spread 2","main rate 2","burst speed","burst bullets","invincibility"]],
@@ -28,7 +29,7 @@ var upgrades = [
 	["burst speed 2",[62,456,83,383],"Burst fires even more often",["burst speed"]],
 	["burst bullets 2",[83,383,62,313],"Burst fires even more bullets",["burst bullets"]],
 	
-	
+
     ["seeker bullets",[407,262,437,347],"Shoot bullets that seek out the enemy",["main spread 3"]],
 	["burst speed 3",[437,347,531,347],"Shoots bursts even faster",["burst speed 2"]],
 	["burst double",[531,347,455,400],"Shoots two bursts at once",["burst bullets 2"]],
