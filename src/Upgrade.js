@@ -14,6 +14,12 @@ class Upgrade extends React.Component{
         this.rightSideRef2 = React.createRef();
         this.upgrades = [];
         this.current_selected = 0;
+        while(this.props.game_state.upgrades.indexOf(upgrades_list[this.current_selected][0] ) !== -1){
+            this.current_selected += 1
+        }
+        if(this.current_selected == upgrades_list.length){
+            this.current_selected = 0;
+        }
         this.handle_event = this.handle_event.bind(this);
         this.scroll_left = this.scroll_left.bind(this);
         this.scroll_right = this.scroll_right.bind(this);
